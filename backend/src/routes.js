@@ -7,6 +7,7 @@ const { Prisma } = require("@prisma/client");
 const { prisma } = require("./lib/prisma");
 const analyzeCheck = require("./services/analysis/analyzeCheck");
 const authRoutes = require("./routes/auth.routes");
+const reportRoutes = require("./routes/report.routes");
 const {
   authMiddleware,
   requireRoles,
@@ -15,6 +16,7 @@ const {
 const router = express.Router();
 
 router.use(authRoutes);
+router.use(reportRoutes);
 
 
 
@@ -592,89 +594,7 @@ router.post(
   })
 );
 
-/* -------------------------------------------------------------------------- */
-/* IA - Análisis del expediente                                               */
-/* -------------------------------------------------------------------------- */
 
-router.post(
-  "/checks/:id/analyze",
-  authMiddleware,
-  asyncHandler(async (req, res) => {
-    const check = await findCheckOrFail(req.params.id, {
-      include: {
-        documents: true,
-        review: true,
-        report: true,
-        evidences: true,
-      },
-    });
-
-    const analysis = await Promise.resolve(
-      analyzeCheck(check)
-    );
-
-    const report = await prisma.$transaction(async (tx) => {
-
-      const report = await tx.report.upsert({
-        where: {
-          checkId: check.id,
-        },
-
-        update: analysis,
-
-        create: {
-          checkId: check.id,
-          ...analysis,
-        },
-      });
-
-      await tx.check.update({
-        where: {
-          id: check.id,
-        },
-
-        data: {
-          status: "reporte_generado",
-        },
-      });
-
-      return report;
-
-    });
-
-    return res.json(report);
-
-  })
-);
-
-/* -------------------------------------------------------------------------- */
-/* Obtener Reporte                                                            */
-/* -------------------------------------------------------------------------- */
-
-router.get(
-  "/checks/:id/report",
-  asyncHandler(async (req, res) => {
-
-    const report = await prisma.report.findUnique({
-
-      where: {
-        checkId: req.params.id,
-      },
-
-    });
-
-    if (!report) {
-
-      return res.status(404).json({
-        error: "Reporte no encontrado",
-      });
-
-    }
-
-    return res.json(report);
-
-  })
-);
 
 /* -------------------------------------------------------------------------- */
 /* Evidencias                                                                 */
