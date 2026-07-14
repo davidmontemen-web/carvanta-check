@@ -1,0 +1,253 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/**
+ * Expediente creado por el cliente.
+ * Es la entidad central del flujo de Carvanta Check.
+ */
+model Check {
+  id    String  @id @default(cuid())
+  folio String? @unique
+
+  marca    String
+  modelo   String
+  anio     String
+  version  String?
+  placas   String?
+  vin      String?
+  vendedor String?
+  precio   String?
+
+  nombreCliente String?
+  whatsapp      String?n
+  email         String?
+
+  status String @default("expediente_creado")
+
+  assignedToId String?
+  assignedTo   User?   @relation(fields: [assignedToId], references: [id])
+
+  documents     Document[]
+  review        Review?
+  evidences     Evidence[]
+  investigation Investigation?
+  report        Report?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([createdAt])
+}
+
+/**
+ * Documentos iniciales cargados por el cliente.
+ */
+model Document {
+  id       String @id @default(cuid())
+  checkId  String
+  type     String
+  fileName String
+  filePath String
+
+  check Check @relation(fields: [checkId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([checkId])
+  @@index([type])
+}
+
+/**
+ * Flujo anterior de revisión ejecutiva.
+ * Se conserva porque routes.js todavía lo utiliza.
+ */
+model Review {
+  id                String  @id @default(cuid())
+  checkId           String  @unique
+  repuveStatus      String?
+  invoiceStatus     String?
+  circulationStatus String?
+  ownershipNotes    String?
+  riskNotes         String?
+  executiveNotes    String?
+
+  check Check @relation(fields: [checkId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/**
+ * Usuarios internos del portal ejecutivo.
+ */
+model User {
+  id       String  @id @default(cuid())
+  name     String
+  email    String  @unique
+  password String
+  role     String  @default("executive")
+  active   Boolean @default(true)
+
+  checks            Check[]
+  investigations    Investigation[]
+  uploadedArtifacts Artifact[]      @relation("ArtifactUploader")
+  createdEvidences  Evidence[]      @relation("EvidenceCreator")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([active])
+}
+
+/**
+ * Investigación tomada por un ejecutivo.
+ * Un expediente tiene como máximo una investigación activa en este MVP.
+ */
+model Investigation {
+  id          String @id @default(cuid())
+  checkId     String @unique
+  executiveId String
+  status      String @default("IN_PROGRESS")
+
+  check     Check @relation(fields: [checkId], references: [id], onDelete: Cascade)
+  executive User  @relation(fields: [executiveId], references: [id])
+
+  artifacts Artifact[]
+  evidences Evidence[]
+  findings  Finding[]
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([executiveId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+/**
+ * Archivo original cargado por el ejecutivo durante la investigación.
+ * Es la fuente documental que después procesará el motor de extracción.
+ */
+model Artifact {
+  id              String @id @default(cuid())
+  investigationId String
+  source          String
+  type            String
+
+  originalName String
+  storedName   String
+  filePath     String
+  mimeType     String
+  sizeBytes    Int
+
+  processingStatus String  @default("PENDING")
+  processingError  String?
+
+  uploadedById String?
+
+  investigation Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  uploadedBy    User?         @relation("ArtifactUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  evidences     Evidence[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([investigationId])
+  @@index([uploadedById])
+  @@index([type])
+  @@index([processingStatus])
+}
+
+/**
+ * Información estructurada obtenida de un artifact o capturada
+ * por el flujo anterior. createdById existe porque routes.js lo utiliza.
+ */
+model Evidence {
+  id              String  @id @default(cuid())
+  checkId         String
+  investigationId String?
+  artifactId      String?
+  createdById     String?
+
+  source String
+  type   String
+  data   Json
+
+  extractionStatus String    @default("PENDING")
+  confidence       Float?
+  extractor        String?
+  extractedAt      DateTime?
+
+  check         Check          @relation(fields: [checkId], references: [id], onDelete: Cascade)
+  investigation Investigation? @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  artifact      Artifact?      @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+  createdBy     User?          @relation("EvidenceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([checkId])
+  @@index([investigationId])
+  @@index([artifactId])
+  @@index([createdById])
+  @@index([type])
+  @@index([extractionStatus])
+}
+
+/**
+ * Hallazgo producido durante la investigación.
+ * status existe porque routes.js lo crea y consulta.
+ */
+model Finding {
+  id              String @id @default(cuid())
+  investigationId String
+
+  type        String
+  severity    String @default("INFO")
+  status      String @default("OPEN")
+  title       String
+  description String
+  data        Json?
+
+  investigation Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([investigationId])
+  @@index([type])
+  @@index([severity])
+  @@index([status])
+}
+
+/**
+ * Reporte final asociado al expediente.
+ * Los campos coinciden con la salida actual de analyzeCheck().
+ */
+model Report {
+  id      String @id @default(cuid())
+  checkId String @unique
+
+  quality        String
+  riskLevel      String
+  alerts         Json
+  recommendation String
+  summary        String
+
+  check Check @relation(fields: [checkId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([riskLevel])
+  @@index([createdAt])
+}

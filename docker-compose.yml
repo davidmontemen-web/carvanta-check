@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: carvanta_check_db
+    restart: always
+    environment:
+      POSTGRES_USER: carvanta
+      POSTGRES_PASSWORD: carvanta123
+      POSTGRES_DB: carvanta_check
+    ports:
+        - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

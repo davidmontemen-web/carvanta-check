@@ -1,0 +1,33 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Uploads
+backend/uploads/
+!backend/uploads/.gitkeep
+
+# Build
+dist/
+build/
+
+# Prisma
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+
+# System
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Logs
+*.log
