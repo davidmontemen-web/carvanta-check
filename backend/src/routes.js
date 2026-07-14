@@ -4,19 +4,12 @@ const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { PrismaClient, Prisma } = require("@prisma/client");
-const { PrismaPg } = require("@prisma/adapter-pg");
+const { Prisma } = require("@prisma/client");
+const { prisma } = require("./lib/prisma");
 const analyzeCheck = require("./services/analysis/analyzeCheck");
 
 const router = express.Router();
 
-/* -------------------------------------------------------------------------- */
-/* Configuración                                                              */
-/* -------------------------------------------------------------------------- */
-
-if (!process.env.DATABASE_URL) {
-  throw new Error("Falta la variable de entorno DATABASE_URL");
-}
 
 if (!process.env.JWT_SECRET) {
   console.warn(
@@ -26,13 +19,7 @@ if (!process.env.JWT_SECRET) {
 
 const JWT_SECRET = process.env.JWT_SECRET || "carvanta_secret_dev";
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
-});
 
-const prisma = new PrismaClient({
-  adapter,
-});
 
 const uploadsRootPath = path.join(__dirname, "../uploads");
 const documentsUploadsPath = uploadsRootPath;
