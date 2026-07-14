@@ -2,20 +2,19 @@ const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { Prisma } = require("@prisma/client");
 const { prisma } = require("./lib/prisma");
 const analyzeCheck = require("./services/analysis/analyzeCheck");
+const authRoutes = require("./routes/auth.routes");
 const {
-  JWT_SECRET,
   authMiddleware,
   requireRoles,
 } = require("./middleware/auth");
 
 const router = express.Router();
 
-
+router.use(authRoutes);
 
 
 
@@ -332,69 +331,6 @@ const checkDetailInclude = {
   },
 };
 
-/* -------------------------------------------------------------------------- */
-/* Autenticación                                                              */
-/* -------------------------------------------------------------------------- */
-
-router.post(
-  "/auth/login",
-  asyncHandler(async (req, res) => {
-    requireFields(req.body, ["email", "password"]);
-
-    const email = String(req.body.email)
-      .trim()
-      .toLowerCase();
-
-    const password = String(req.body.password);
-
-    const user = await prisma.user.findUnique({
-      where: {
-        email,
-      },
-    });
-
-    if (!user) {
-      return res.status(401).json({
-        error: "Credenciales inválidas",
-      });
-    }
-
-    const validPassword = await bcrypt.compare(
-      password,
-      user.password
-    );
-
-    if (!validPassword) {
-      return res.status(401).json({
-        error: "Credenciales inválidas",
-      });
-    }
-
-    const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-      JWT_SECRET,
-      {
-        expiresIn: "8h",
-      }
-    );
-
-    return res.json({
-      token,
-
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    });
-  })
-);
 
 /* -------------------------------------------------------------------------- */
 /* Expedientes: creación y consulta                                           */
