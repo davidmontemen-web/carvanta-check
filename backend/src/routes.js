@@ -5,9 +5,11 @@ const fs = require("fs");
 const jwt = require("jsonwebtoken");
 const { Prisma } = require("@prisma/client");
 const { prisma } = require("./lib/prisma");
-const analyzeCheck = require("./services/analysis/analyzeCheck");
 const authRoutes = require("./routes/auth.routes");
 const reportRoutes = require("./routes/report.routes");
+const createChecksRouter = require(
+  "./routes/checks.routes"
+);
 const {
   authMiddleware,
   requireRoles,
@@ -15,8 +17,6 @@ const {
 
 const router = express.Router();
 
-router.use(authRoutes);
-router.use(reportRoutes);
 
 
 
@@ -333,207 +333,22 @@ const checkDetailInclude = {
   },
 };
 
+router.use(authRoutes);
+router.use(reportRoutes);
+router.use(
+  createChecksRouter({
+    documentUpload,
+    removeUploadedFiles,
+    checkDetailInclude,
+  })
+);
+
+
 
 /* -------------------------------------------------------------------------- */
 /* Expedientes: creación y consulta                                           */
 /* -------------------------------------------------------------------------- */
 
-router.post(
-  "/checks",
-  documentUpload.fields([
-    {
-      name: "tarjetaCirculacion",
-      maxCount: 1,
-    },
-    {
-      name: "facturaFrente",
-      maxCount: 1,
-    },
-    {
-      name: "facturaReverso",
-      maxCount: 1,
-    },
-    {
-      name: "documentoAdicional",
-      maxCount: 1,
-    },
-  ]),
-  asyncHandler(async (req, res) => {
-    const files = req.files || {};
-
-    try {
-      requireFields(req.body, ["marca", "modelo", "anio"]);
-
-      if (!files.tarjetaCirculacion?.[0]) {
-        const error = new Error(
-          "La tarjeta de circulación es obligatoria"
-        );
-
-        error.statusCode = 400;
-        throw error;
-      }
-
-      const anio = normalizeString(req.body.anio);
-      const precio = normalizeString(req.body.precio);
-
-      const checkData = {
-        marca: normalizeString(req.body.marca),
-        modelo: normalizeString(req.body.modelo),
-        anio,
-        version: normalizeString(req.body.version),
-        placas: normalizeString(req.body.placas),
-        vin: normalizeString(req.body.vin),
-        vendedor: normalizeString(req.body.vendedor),
-        precio,
-      };
-
-      const docsToCreate = [];
-
-      Object.entries(files).forEach(([type, fileArray]) => {
-        const file = fileArray?.[0];
-
-        if (!file) {
-          return;
-        }
-
-        docsToCreate.push({
-          type,
-          fileName: file.originalname,
-          filePath: `/uploads/${file.filename}`,
-        });
-      });
-
-      const createdCheck = await prisma.$transaction(
-        async (transaction) => {
-          const check = await transaction.check.create({
-            data: checkData,
-          });
-
-          if (docsToCreate.length > 0) {
-            await transaction.document.createMany({
-              data: docsToCreate.map((document) => ({
-                ...document,
-                checkId: check.id,
-              })),
-            });
-          }
-
-          return transaction.check.findUnique({
-            where: {
-              id: check.id,
-            },
-
-            include: {
-              documents: {
-                orderBy: {
-                  createdAt: "asc",
-                },
-              },
-
-              review: true,
-              report: true,
-            },
-          });
-        }
-      );
-
-      return res.status(201).json(createdCheck);
-    } catch (error) {
-      removeUploadedFiles(files);
-      throw error;
-    }
-  })
-);
-
-router.get(
-  "/checks/:id",
-  asyncHandler(async (req, res) => {
-    const check = await findCheckOrFail(req.params.id, {
-      include: checkDetailInclude,
-    });
-
-    return res.json(check);
-  })
-);
-
-/* -------------------------------------------------------------------------- */
-/* Expedientes: información del cliente                                       */
-/* -------------------------------------------------------------------------- */
-
-router.patch(
-  "/checks/:id/customer",
-  asyncHandler(async (req, res) => {
-    requireFields(req.body, [
-      "nombreCliente",
-      "whatsapp",
-      "email",
-    ]);
-
-    await findCheckOrFail(req.params.id);
-
-    const email = String(req.body.email)
-      .trim()
-      .toLowerCase();
-
-    const updatedCheck = await prisma.check.update({
-      where: {
-        id: req.params.id,
-      },
-
-      data: {
-        nombreCliente: normalizeString(req.body.nombreCliente),
-        whatsapp: normalizeString(req.body.whatsapp),
-        email,
-        status: "registro_completo",
-      },
-
-      include: {
-        documents: {
-          orderBy: {
-            createdAt: "asc",
-          },
-        },
-      },
-    });
-
-    return res.json(updatedCheck);
-  })
-);
-
-/* -------------------------------------------------------------------------- */
-/* Expedientes: pago                                                          */
-/* -------------------------------------------------------------------------- */
-
-router.patch(
-  "/checks/:id/pay",
-  asyncHandler(async (req, res) => {
-    const existingCheck = await findCheckOrFail(req.params.id);
-
-    if (existingCheck.status === "pagado") {
-      return res.json(existingCheck);
-    }
-
-    const updatedCheck = await prisma.check.update({
-      where: {
-        id: req.params.id,
-      },
-
-      data: {
-        status: "pagado",
-      },
-
-      include: {
-        documents: {
-          orderBy: {
-            createdAt: "asc",
-          },
-        },
-      },
-    });
-
-    return res.json(updatedCheck);
-  })
-);
 
 /* -------------------------------------------------------------------------- */
 /* Revisión ejecutiva                                                         */
