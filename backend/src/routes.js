@@ -1,5 +1,6 @@
 const express = require("express");
 const { prisma } = require("./lib/prisma");
+
 const authRoutes = require("./routes/auth.routes");
 const reportRoutes = require("./routes/report.routes");
 const createInvestigationsRouter = require(
@@ -11,13 +12,15 @@ const executiveRoutes = require(
 const createChecksRouter = require(
   "./routes/checks.routes"
 );
+
 const {
   authMiddleware,
-  requireRoles,
 } = require("./middleware/auth");
+
 const {
   errorHandler,
 } = require("./middleware/errorHandler");
+
 const {
   documentUpload,
   artifactUpload,
@@ -25,119 +28,17 @@ const {
   removeUploadedFiles,
 } = require("./middleware/uploads");
 
+const {
+  asyncHandler,
+  normalizeString,
+  requireFields,
+} = require("./utils/http");
+
+const {
+  findCheckOrFail,
+} = require("./utils/entities");
+
 const router = express.Router();
-
-
-
-
-
-
-
-/* -------------------------------------------------------------------------- */
-/* Utilidades                                                                 */
-/* -------------------------------------------------------------------------- */
-
-
-
-
-
-function normalizeString(value) {
-  if (typeof value !== "string") {
-    return value;
-  }
-
-  const trimmed = value.trim();
-
-  return trimmed === "" ? null : trimmed;
-}
-
-function parseOptionalInteger(value, fieldName) {
-  if (value === undefined || value === null || value === "") {
-    return null;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-
-  if (!Number.isInteger(parsed)) {
-    const error = new Error(`${fieldName} debe ser un número entero`);
-    error.statusCode = 400;
-    throw error;
-  }
-
-  return parsed;
-}
-
-function parseOptionalNumber(value, fieldName) {
-  if (value === undefined || value === null || value === "") {
-    return null;
-  }
-
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed)) {
-    const error = new Error(`${fieldName} debe ser un número válido`);
-    error.statusCode = 400;
-    throw error;
-  }
-
-  return parsed;
-}
-
-function requireFields(body, fields) {
-  const missing = fields.filter((field) => {
-    const value = body[field];
-
-    return (
-      value === undefined ||
-      value === null ||
-      String(value).trim() === ""
-    );
-  });
-
-  if (missing.length > 0) {
-    const error = new Error(
-      `Campos obligatorios: ${missing.join(", ")}`
-    );
-
-    error.statusCode = 400;
-    throw error;
-  }
-}
-
-/* -------------------------------------------------------------------------- */
-/* Middlewares                                                                */
-/* -------------------------------------------------------------------------- */
-
-function asyncHandler(handler) {
-  return function wrappedHandler(req, res, next) {
-    Promise.resolve(handler(req, res, next)).catch(next);
-  };
-}
-
-
-
-
-
-async function findCheckOrFail(checkId, options = {}) {
-  const check = await prisma.check.findUnique({
-    where: {
-      id: checkId,
-    },
-    ...options,
-  });
-
-  if (!check) {
-    const error = new Error("Expediente no encontrado");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  return check;
-}
-
-
-
-
 
 
 /* -------------------------------------------------------------------------- */
@@ -205,10 +106,6 @@ router.use(
   })
 );
 
-
-
-
-
 /* -------------------------------------------------------------------------- */
 /* Revisión ejecutiva                                                         */
 /* -------------------------------------------------------------------------- */
@@ -267,8 +164,6 @@ router.post(
     return res.json(result);
   })
 );
-
-
 
 /* -------------------------------------------------------------------------- */
 /* Evidencias                                                                 */
