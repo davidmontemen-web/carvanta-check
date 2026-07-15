@@ -16,6 +16,10 @@ const {
   validateInvestigationOwnership,
 } = require("../utils/entities");
 
+const {
+  runInvestigationPipeline,
+} = require("../services/engines/pipeline");
+
 const router = express.Router();
 
 const publicUserSelect = {
@@ -501,6 +505,33 @@ function createInvestigationsRouter({
       return res.json(result);
     })
   );
+
+  /* -------------------------------------------------------------------------- */
+/* Ejecutar pipeline de investigación                                         */
+/* -------------------------------------------------------------------------- */
+
+router.post(
+  "/investigations/:id/process",
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const investigation =
+      await findInvestigationOrFail(
+        req.params.id
+      );
+
+    validateInvestigationOwnership(
+      investigation,
+      req.user.id
+    );
+
+    const result =
+      await runInvestigationPipeline(
+        investigation.id
+      );
+
+    return res.json(result);
+  })
+);
 
   return router;
 }
