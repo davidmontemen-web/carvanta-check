@@ -4,35 +4,14 @@ const jwt = require("jsonwebtoken");
 
 const { prisma } = require("../lib/prisma");
 const { JWT_SECRET } = require("../middleware/auth");
+const {
+  asyncHandler,
+  requireFields,
+} = require("../utils/http");
 
 const router = express.Router();
 
-function requireFields(body, fields) {
-  const missing = fields.filter((field) => {
-    const value = body[field];
 
-    return (
-      value === undefined ||
-      value === null ||
-      String(value).trim() === ""
-    );
-  });
-
-  if (missing.length > 0) {
-    const error = new Error(
-      `Campos obligatorios: ${missing.join(", ")}`
-    );
-
-    error.statusCode = 400;
-    throw error;
-  }
-}
-
-function asyncHandler(handler) {
-  return function wrappedHandler(req, res, next) {
-    Promise.resolve(handler(req, res, next)).catch(next);
-  };
-}
 
 router.post(
   "/auth/login",

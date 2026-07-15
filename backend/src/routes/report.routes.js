@@ -3,31 +3,17 @@ const express = require("express");
 const { prisma } = require("../lib/prisma");
 const { authMiddleware } = require("../middleware/auth");
 const analyzeCheck = require("../services/analysis/analyzeCheck");
+const {
+  asyncHandler,
+} = require("../utils/http");
+
+const {
+  findCheckOrFail,
+} = require("../utils/entities");
 
 const router = express.Router();
 
-function asyncHandler(handler) {
-  return function wrappedHandler(req, res, next) {
-    Promise.resolve(handler(req, res, next)).catch(next);
-  };
-}
 
-async function findCheckOrFail(checkId, options = {}) {
-  const check = await prisma.check.findUnique({
-    where: {
-      id: checkId,
-    },
-    ...options,
-  });
-
-  if (!check) {
-    const error = new Error("Expediente no encontrado");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  return check;
-}
 
 /* -------------------------------------------------------------------------- */
 /* Generar análisis y reporte                                                 */

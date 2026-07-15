@@ -2,61 +2,21 @@ const express = require("express");
 
 const { prisma } = require("../lib/prisma");
 
+const {
+  asyncHandler,
+  normalizeString,
+  requireFields,
+} = require("../utils/http");
+
+const {
+  findCheckOrFail,
+} = require("../utils/entities");
+
 const router = express.Router();
 
-function asyncHandler(handler) {
-  return function wrappedHandler(req, res, next) {
-    Promise.resolve(handler(req, res, next)).catch(next);
-  };
-}
 
-function normalizeString(value) {
-  if (typeof value !== "string") {
-    return value;
-  }
 
-  const trimmed = value.trim();
 
-  return trimmed === "" ? null : trimmed;
-}
-
-function requireFields(body, fields) {
-  const missing = fields.filter((field) => {
-    const value = body[field];
-
-    return (
-      value === undefined ||
-      value === null ||
-      String(value).trim() === ""
-    );
-  });
-
-  if (missing.length > 0) {
-    const error = new Error(
-      `Campos obligatorios: ${missing.join(", ")}`
-    );
-
-    error.statusCode = 400;
-    throw error;
-  }
-}
-
-async function findCheckOrFail(checkId, options = {}) {
-  const check = await prisma.check.findUnique({
-    where: {
-      id: checkId,
-    },
-    ...options,
-  });
-
-  if (!check) {
-    const error = new Error("Expediente no encontrado");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  return check;
-}
 
 function createChecksRouter({
   documentUpload,

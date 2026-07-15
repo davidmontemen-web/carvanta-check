@@ -5,6 +5,9 @@ const { prisma } = require("../lib/prisma");
 const {
   authMiddleware,
 } = require("../middleware/auth");
+const {
+  asyncHandler,
+} = require("../utils/http");
 
 const router = express.Router();
 
@@ -15,11 +18,7 @@ const publicUserSelect = {
   role: true,
 };
 
-function asyncHandler(handler) {
-  return function wrappedHandler(req, res, next) {
-    Promise.resolve(handler(req, res, next)).catch(next);
-  };
-}
+
 
 /* -------------------------------------------------------------------------- */
 /* Dashboard ejecutivo                                                        */
