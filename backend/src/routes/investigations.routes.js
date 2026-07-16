@@ -29,6 +29,43 @@ const publicUserSelect = {
   role: true,
 };
 
+function getTaskStatus({
+  artifacts,
+  evidences,
+  evidenceType,
+}) {
+  const hasEvidence = evidences.some(
+    (evidence) =>
+      evidence.type === evidenceType
+  );
+
+  if (hasEvidence) {
+    return "COMPLETED";
+  }
+
+  const hasFailedArtifact = artifacts.some(
+    (artifact) =>
+      artifact.processingStatus === "FAILED"
+  );
+
+  if (hasFailedArtifact) {
+    return "NEEDS_REVIEW";
+  }
+
+  const hasProcessingArtifact = artifacts.some(
+    (artifact) =>
+      artifact.processingStatus ===
+        "PROCESSING" ||
+      artifact.processingStatus ===
+        "PENDING"
+  );
+
+  if (hasProcessingArtifact) {
+    return "IN_PROGRESS";
+  }
+
+  return "PENDING";
+}
 
 
 function createInvestigationsRouter({
@@ -530,6 +567,343 @@ router.post(
       );
 
     return res.json(result);
+  })
+);
+
+/* -------------------------------------------------------------------------- */
+/* Validar identidad base del vehículo                                        */
+/* -------------------------------------------------------------------------- */
+
+router.post(
+  "/investigations/:id/vehicle-base",
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const investigation =
+      await findInvestigationOrFail(req.params.id, {
+        include: {
+          check: true,
+        },
+      });
+
+    validateInvestigationOwnership(
+      investigation,
+      req.user.id
+    );
+
+    if (
+      investigation.status !== "IN_PROGRESS"
+    ) {
+      const error = new Error(
+        "La investigación ya no acepta validaciones"
+      );
+
+      error.statusCode = 409;
+      throw error;
+    }
+
+    requireFields(req.body, [
+      "vin",
+      "plate",
+      "brand",
+      "model",
+      "year",
+    ]);
+
+    const data = {
+      vin: normalizeString(req.body.vin),
+      plate: normalizeString(req.body.plate),
+      brand: normalizeString(req.body.brand),
+      model: normalizeString(req.body.model),
+      year: normalizeString(req.body.year),
+      version: normalizeString(req.body.version),
+      state: normalizeString(req.body.state),
+      owner: normalizeString(req.body.owner),
+      notes: normalizeString(req.body.notes),
+
+      validatedAgainst: "TARJETA_CIRCULACION",
+      validatedBy: req.user.id,
+      validatedAt: new Date().toISOString(),
+    };
+
+    const existingEvidence =
+      await prisma.evidence.findFirst({
+        where: {
+          investigationId: investigation.id,
+          type: "VEHICLE_BASE_VALIDATED",
+        },
+      });
+
+    const evidence = existingEvidence
+      ? await prisma.evidence.update({
+          where: {
+            id: existingEvidence.id,
+          },
+
+          data: {
+            data,
+            source: "EXECUTIVE_VALIDATION",
+            extractionStatus: "COMPLETED",
+            confidence: 1,
+            extractor: "manual-executive-validation",
+            extractedAt: new Date(),
+            createdById: req.user.id,
+          },
+        })
+      : await prisma.evidence.create({
+          data: {
+            checkId: investigation.checkId,
+            investigationId: investigation.id,
+
+            source: "EXECUTIVE_VALIDATION",
+            type: "VEHICLE_BASE_VALIDATED",
+            data,
+
+            extractionStatus: "COMPLETED",
+            confidence: 1,
+            extractor: "manual-executive-validation",
+            extractedAt: new Date(),
+            createdById: req.user.id,
+          },
+        });
+
+    await prisma.check.update({
+      where: {
+        id: investigation.checkId,
+      },
+
+      data: {
+        vin: data.vin,
+        placas: data.plate,
+        marca: data.brand,
+        modelo: data.model,
+        anio: data.year,
+        version: data.version,
+      },
+    });
+
+    return res.json(evidence);
+  })
+);
+
+/* -------------------------------------------------------------------------- */
+/* Workspace completo de investigación                                        */
+/* -------------------------------------------------------------------------- */
+
+router.get(
+  "/investigations/:id/workspace",
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const investigation =
+      await findInvestigationOrFail(req.params.id, {
+        include: {
+          executive: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+
+          check: {
+            include: {
+              documents: {
+                orderBy: {
+                  createdAt: "asc",
+                },
+              },
+
+              report: true,
+            },
+          },
+
+          artifacts: {
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
+
+          evidences: {
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
+
+          findings: {
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
+        },
+      });
+
+    validateInvestigationOwnership(
+      investigation,
+      req.user.id
+    );
+
+    const vehicleBaseEvidence =
+      investigation.evidences.find(
+        (evidence) =>
+          evidence.type ===
+          "VEHICLE_BASE_VALIDATED"
+      ) || null;
+
+    const artifactsByType =
+      investigation.artifacts.reduce(
+        (result, artifact) => {
+          if (!result[artifact.type]) {
+            result[artifact.type] = [];
+          }
+
+          result[artifact.type].push(artifact);
+
+          return result;
+        },
+        {}
+      );
+
+    const tasks = [
+      {
+        key: "VEHICLE_VALIDATION",
+        label: "Validar identidad",
+        status: vehicleBaseEvidence
+          ? "COMPLETED"
+          : "PENDING",
+      },
+
+      {
+        key: "REPUVE",
+        label: "Consultar REPUVE",
+        status: getTaskStatus({
+          artifacts:
+            artifactsByType.REPUVE || [],
+          evidences:
+            investigation.evidences,
+          evidenceType: "REPUVE_RESULT",
+        }),
+      },
+
+      {
+        key: "SAT_FACTURA",
+        label: "Validar factura SAT",
+        status: getTaskStatus({
+          artifacts:
+            artifactsByType.SAT_FACTURA || [],
+          evidences:
+            investigation.evidences,
+          evidenceType: "SAT_FACTURA_RESULT",
+        }),
+      },
+
+      {
+        key: "ADEUDOS",
+        label: "Consultar adeudos",
+        status: getTaskStatus({
+          artifacts:
+            artifactsByType.ADEUDOS || [],
+          evidences:
+            investigation.evidences,
+          evidenceType: "ADEUDOS_RESULT",
+        }),
+      },
+
+      {
+        key: "MULTAS",
+        label: "Consultar multas",
+        status: getTaskStatus({
+          artifacts:
+            artifactsByType.MULTAS || [],
+          evidences:
+            investigation.evidences,
+          evidenceType: "MULTAS_RESULT",
+        }),
+      },
+
+      {
+        key: "RAPI",
+        label: "Consultar RAPI",
+        status: getTaskStatus({
+          artifacts:
+            artifactsByType.RAPI || [],
+          evidences:
+            investigation.evidences,
+          evidenceType: "RAPI_RESULT",
+        }),
+      },
+
+      {
+        key: "TRANSUNION",
+        label: "Consultar TransUnion",
+        status: getTaskStatus({
+          artifacts:
+            artifactsByType.TRANSUNION || [],
+          evidences:
+            investigation.evidences,
+          evidenceType: "TRANSUNION_RESULT",
+        }),
+      },
+
+      {
+        key: "REPORT",
+        label: "Generar reporte",
+        status: investigation.check.report
+          ? "COMPLETED"
+          : "PENDING",
+      },
+    ];
+
+    const completedTasks = tasks.filter(
+      (task) => task.status === "COMPLETED"
+    ).length;
+
+    const progress = Math.round(
+      (completedTasks / tasks.length) * 100
+    );
+
+    return res.json({
+      investigation: {
+        id: investigation.id,
+        status: investigation.status,
+        startedAt: investigation.startedAt,
+        completedAt:
+          investigation.completedAt,
+        executive:
+          investigation.executive,
+      },
+
+      check: investigation.check,
+
+      vehicleBase:
+        vehicleBaseEvidence?.data || null,
+
+      tasks,
+
+      progress,
+
+      summary: {
+        artifactCount:
+          investigation.artifacts.length,
+
+        evidenceCount:
+          investigation.evidences.length,
+
+        findingCount:
+          investigation.findings.length,
+
+        completedTasks,
+
+        totalTasks: tasks.length,
+
+        reportReady:
+          Boolean(investigation.check.report),
+      },
+
+      artifacts: investigation.artifacts,
+      evidences: investigation.evidences,
+      findings: investigation.findings,
+      report: investigation.check.report,
+    });
   })
 );
 
