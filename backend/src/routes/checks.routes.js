@@ -127,6 +127,128 @@ function createChecksRouter({
     })
   );
 
+  /* -------------------------------------------------------------------------- */
+/* Seguimiento público del expediente                                         */
+/* -------------------------------------------------------------------------- */
+
+router.get(
+  "/checks/:id/status",
+  asyncHandler(async (req, res) => {
+    const check = await findCheckOrFail(req.params.id, {
+      include: {
+        report: true,
+
+        investigation: {
+          select: {
+            id: true,
+            status: true,
+            startedAt: true,
+            completedAt: true,
+          },
+        },
+      },
+    });
+
+    const statusMap = {
+      expediente_creado: {
+        label: "Expediente creado",
+        stage: "RECEIVED",
+      },
+
+      registro_completo: {
+        label: "Registro completo",
+        stage: "RECEIVED",
+      },
+
+      pagado: {
+        label: "Recibido",
+        stage: "RECEIVED",
+      },
+
+      PAGADO: {
+        label: "Recibido",
+        stage: "RECEIVED",
+      },
+
+      EN_INVESTIGACION: {
+        label: "En investigación",
+        stage: "INVESTIGATION",
+      },
+
+      INVESTIGACION_COMPLETA: {
+        label: "En revisión",
+        stage: "REVIEW",
+      },
+
+      reporte_generado: {
+        label: "Reporte en revisión",
+        stage: "REVIEW",
+      },
+
+      REPORTE_LISTO: {
+        label: "Reporte listo",
+        stage: "READY",
+      },
+
+      ENTREGADO: {
+        label: "Reporte entregado",
+        stage: "READY",
+      },
+    };
+
+    const status =
+      statusMap[check.status] || {
+        label: "En proceso",
+        stage: "PROCESSING",
+      };
+
+    const reportReady = [
+      "REPORTE_LISTO",
+      "ENTREGADO",
+    ].includes(check.status);
+
+    return res.json({
+      id: check.id,
+      folio: check.folio,
+      vehicle: {
+        brand: check.marca,
+        model: check.modelo,
+        year: check.anio,
+      },
+
+      status: check.status,
+      statusLabel: status.label,
+      stage: status.stage,
+
+      estimatedDelivery:
+        reportReady
+          ? "Disponible"
+          : "24 a 48 horas",
+
+      reportReady,
+
+      investigation: check.investigation,
+
+      report:
+        reportReady && check.report
+          ? {
+              id: check.report.id,
+              quality: check.report.quality,
+              riskLevel:
+                check.report.riskLevel,
+              alerts: check.report.alerts,
+              recommendation:
+                check.report.recommendation,
+              summary:
+                check.report.summary,
+              createdAt:
+                check.report.createdAt,
+            }
+          : null,
+    });
+  })
+);
+
   router.get(
     "/checks/:id",
     asyncHandler(async (req, res) => {

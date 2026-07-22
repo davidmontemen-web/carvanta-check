@@ -8,7 +8,7 @@ function PaymentPage() {
   const handlePayment = async () => {
     try {
       await api.patch(`/checks/${id}/pay`);
-      navigate(`/reporte/${id}`);
+      navigate(`/check/${id}/status`);
     } catch (error) {
       console.error(error);
       alert("Error al procesar pago simulado.");

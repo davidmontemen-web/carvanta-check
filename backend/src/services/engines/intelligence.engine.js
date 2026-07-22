@@ -1,77 +1,157 @@
+const {
+  evaluateRepuve,
+} = require("../rules/repuve/evaluateRepuve");
+
 async function runIntelligenceEngine({
   transaction,
   investigation,
   evidences,
 }) {
+  /*
+   * Eliminamos únicamente:
+   *
+   * 1. Los hallazgos REPUVE generados en una ejecución anterior.
+   * 2. Los hallazgos simulados del pipeline anterior.
+   *
+   * No eliminamos hallazgos manuales ni los de futuras fuentes.
+   */
   await transaction.finding.deleteMany({
     where: {
       investigationId: investigation.id,
 
-      type: {
-        startsWith: "SIMULATED_",
-      },
+      OR: [
+        {
+          type: {
+            startsWith: "REPUVE_",
+          },
+        },
+
+        {
+          type: {
+            startsWith: "SIMULATED_",
+          },
+        },
+      ],
     },
   });
 
+  /*
+   * La identidad base puede venir en la colección de evidencias
+   * recibida por el pipeline o consultarse directamente en BD.
+   */
+  const vehicleBaseEvidence =
+    evidences.find(
+      (evidence) =>
+        evidence.type ===
+        "VEHICLE_BASE_VALIDATED"
+    ) ||
+    (await transaction.evidence.findFirst({
+      where: {
+        investigationId: investigation.id,
+        type: "VEHICLE_BASE_VALIDATED",
+        extractionStatus: "COMPLETED",
+      },
+
+      orderBy: {
+        updatedAt: "desc",
+      },
+    }));
+
+  if (!vehicleBaseEvidence) {
+    const error = new Error(
+      "Primero debes validar la identidad base del vehículo"
+    );
+
+    error.statusCode = 409;
+    throw error;
+  }
+
+  /*
+   * El resultado REPUVE debe haber sido confirmado por el ejecutivo.
+   * No utilizamos fixtures ni una extracción simulada.
+   */
+  const repuveEvidence =
+    evidences.find(
+      (evidence) =>
+        evidence.type === "REPUVE_RESULT"
+    ) ||
+    (await transaction.evidence.findFirst({
+      where: {
+        investigationId: investigation.id,
+        type: "REPUVE_RESULT",
+        extractionStatus: "COMPLETED",
+      },
+
+      orderBy: {
+        updatedAt: "desc",
+      },
+    }));
+
+  if (!repuveEvidence) {
+    const error = new Error(
+      "La investigación no contiene un resultado REPUVE validado"
+    );
+
+    error.statusCode = 409;
+    throw error;
+  }
+
+  /*
+   * El evaluador compara:
+   *
+   * VEHICLE_BASE_VALIDATED
+   * contra
+   * REPUVE_RESULT
+   *
+   * y devuelve hallazgos reales basados en reglas.
+   */
+  const evaluatedFindings = evaluateRepuve({
+    vehicleBase: vehicleBaseEvidence.data,
+    repuve: repuveEvidence.data,
+  });
+
+  if (
+    !Array.isArray(evaluatedFindings) ||
+    evaluatedFindings.length === 0
+  ) {
+    const error = new Error(
+      "El evaluador REPUVE no produjo hallazgos"
+    );
+
+    error.statusCode = 500;
+    throw error;
+  }
+
   const findings = [];
 
-  for (const evidence of evidences) {
-    const artifactType =
-      evidence.data?.artifactType ||
-      evidence.type;
-
+  /*
+   * Persistimos cada resultado producido por el evaluador.
+   */
+  for (const findingData of evaluatedFindings) {
     const finding =
       await transaction.finding.create({
         data: {
           investigationId: investigation.id,
 
-          type: "SIMULATED_ARTIFACT_PROCESSED",
+          type: findingData.type,
 
-          severity: "INFO",
-          status: "OPEN",
+          severity:
+            findingData.severity || "INFO",
 
-          title: `${artifactType} recibido`,
+          status:
+            findingData.status || "OPEN",
+
+          title: findingData.title,
 
           description:
-            "El documento fue almacenado y convertido en una evidencia estructurada preliminar.",
+            findingData.description,
 
-          data: {
-            evidenceId: evidence.id,
-            artifactId: evidence.artifactId,
-            artifactType,
-          },
+          data: findingData.data || null,
         },
       });
 
     findings.push(finding);
   }
-
-  const summaryFinding =
-    await transaction.finding.create({
-      data: {
-        investigationId: investigation.id,
-
-        type: "SIMULATED_COLLECTION_SUMMARY",
-
-        severity: "INFO",
-        status: "OPEN",
-
-        title: "Resumen de evidencia disponible",
-
-        description:
-          `La investigación contiene ${evidences.length} evidencia(s) estructurada(s).`,
-
-        data: {
-          evidenceCount: evidences.length,
-
-          evidenceTypes: evidences.map(
-            (evidence) => evidence.type
-          ),
-        },
-      },
-    });
-
-  findings.push(summaryFinding);
 
   return findings;
 }

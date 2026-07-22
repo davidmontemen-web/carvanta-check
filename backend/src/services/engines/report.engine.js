@@ -1,15 +1,60 @@
-function calculatePreliminaryQuality(
-  evidenceCount
-) {
-  if (evidenceCount >= 4) {
-    return "Completo";
+function getFindingImpact(finding) {
+  const impact =
+    finding.data?.scoreImpact;
+
+  return Number.isFinite(impact)
+    ? impact
+    : 0;
+}
+
+function calculateScore(findings) {
+  const deductions = findings
+    .map(getFindingImpact)
+    .filter((impact) => impact < 0);
+
+  const score = deductions.reduce(
+    (currentScore, deduction) =>
+      currentScore + deduction,
+    100
+  );
+
+  return Math.max(0, Math.min(100, score));
+}
+
+function getRiskLevel(score, findings) {
+  const hasCriticalAlert = findings.some(
+    (finding) =>
+      finding.severity === "CRITICAL" &&
+      finding.status !== "RESOLVED"
+  );
+
+  if (hasCriticalAlert || score < 50) {
+    return "CRITICO";
   }
 
-  if (evidenceCount >= 2) {
-    return "Parcial";
+  if (score < 70) {
+    return "ALTO";
   }
 
-  return "Inicial";
+  if (score < 85) {
+    return "MODERADO";
+  }
+
+  return "BAJO";
+}
+
+function getQuality({
+  vehicleBaseEvidence,
+  repuveEvidence,
+}) {
+  if (
+    vehicleBaseEvidence &&
+    repuveEvidence
+  ) {
+    return "REPUVE_VALIDADO";
+  }
+
+  return "INCOMPLETO";
 }
 
 async function runReportEngine({
@@ -18,24 +63,96 @@ async function runReportEngine({
   evidences,
   findings,
 }) {
-  const quality =
-    calculatePreliminaryQuality(
-      evidences.length
-    );
+  const vehicleBaseEvidence =
+    evidences.find(
+      (evidence) =>
+        evidence.type ===
+        "VEHICLE_BASE_VALIDATED"
+    ) ||
+    (await transaction.evidence.findFirst({
+      where: {
+        investigationId: investigation.id,
+        type: "VEHICLE_BASE_VALIDATED",
+      },
+    }));
+
+  const repuveEvidence =
+    evidences.find(
+      (evidence) =>
+        evidence.type === "REPUVE_RESULT"
+    ) ||
+    (await transaction.evidence.findFirst({
+      where: {
+        investigationId: investigation.id,
+        type: "REPUVE_RESULT",
+      },
+    }));
+
+  const score = calculateScore(findings);
+
+  const riskLevel = getRiskLevel(
+    score,
+    findings
+  );
+
+  const activeAlerts = findings.filter(
+    (finding) =>
+      finding.severity !== "INFO" &&
+      finding.status !== "RESOLVED"
+  );
+
+  const positiveFindings = findings.filter(
+    (finding) =>
+      finding.severity === "INFO"
+  );
+
+  const recommendation =
+    riskLevel === "CRITICO"
+      ? "No se recomienda continuar con la operación hasta aclarar las alertas críticas detectadas."
+      : riskLevel === "ALTO"
+        ? "Se recomienda detener la operación y validar las inconsistencias antes de realizar cualquier pago."
+        : riskLevel === "MODERADO"
+          ? "La operación requiere validaciones adicionales antes de tomar una decisión."
+          : "La consulta REPUVE no presenta alertas críticas y los datos principales coinciden. Continúa con las demás validaciones documentales antes de comprar.";
 
   const reportData = {
-    quality,
+    score,
 
-    riskLevel: "No determinado",
+    sources: {
+      vehicleBase: Boolean(
+        vehicleBaseEvidence
+      ),
 
-    alerts: [],
+      repuve: Boolean(repuveEvidence),
+    },
 
-    recommendation:
-      "El expediente fue procesado correctamente por el pipeline técnico. Aún se requiere conectar extracción documental real y reglas de validación antes de emitir una recomendación vehicular.",
+    positiveFindings:
+      positiveFindings.map(
+        (finding) => ({
+          type: finding.type,
+          title: finding.title,
+          description:
+            finding.description,
+        })
+      ),
 
-    summary:
-      `Carvanta procesó ${evidences.length} evidencia(s) y generó ${findings.length} hallazgo(s) preliminar(es).`,
+    alerts: activeAlerts.map(
+      (finding) => ({
+        type: finding.type,
+        severity: finding.severity,
+        title: finding.title,
+        description:
+          finding.description,
+        scoreImpact:
+          finding.data?.scoreImpact || 0,
+      })
+    ),
   };
+
+  const summary =
+    `Score preliminar Carvanta: ${score}/100. ` +
+    `Nivel de riesgo: ${riskLevel}. ` +
+    `REPUVE generó ${positiveFindings.length} coincidencia(s) o resultado(s) favorable(s) y ${activeAlerts.length} alerta(s).`;
 
   const report =
     await transaction.report.upsert({
@@ -43,11 +160,34 @@ async function runReportEngine({
         checkId: investigation.checkId,
       },
 
-      update: reportData,
+      update: {
+        quality: getQuality({
+          vehicleBaseEvidence,
+          repuveEvidence,
+        }),
+
+        riskLevel,
+
+        alerts: reportData,
+
+        recommendation,
+        summary,
+      },
 
       create: {
         checkId: investigation.checkId,
-        ...reportData,
+
+        quality: getQuality({
+          vehicleBaseEvidence,
+          repuveEvidence,
+        }),
+
+        riskLevel,
+
+        alerts: reportData,
+
+        recommendation,
+        summary,
       },
     });
 

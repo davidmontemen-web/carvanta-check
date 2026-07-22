@@ -24,7 +24,7 @@ model Check {
   precio   String?
 
   nombreCliente String?
-  whatsapp      String?n
+  whatsapp      String?
   email         String?
 
   status String @default("expediente_creado")
@@ -95,10 +95,11 @@ model User {
   role     String  @default("executive")
   active   Boolean @default(true)
 
-  checks            Check[]
-  investigations    Investigation[]
-  uploadedArtifacts Artifact[]      @relation("ArtifactUploader")
-  createdEvidences  Evidence[]      @relation("EvidenceCreator")
+  checks                   Check[]
+  investigations           Investigation[]
+  uploadedArtifacts        Artifact[]                    @relation("ArtifactUploader")
+  createdEvidences         Evidence[]                    @relation("EvidenceCreator")
+  invoiceAnalysesPerformed InvoiceInvestigatorAnalysis[] @relation("InvoiceAnalysisResearcher")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -120,9 +121,12 @@ model Investigation {
   check     Check @relation(fields: [checkId], references: [id], onDelete: Cascade)
   executive User  @relation(fields: [executiveId], references: [id])
 
-  artifacts Artifact[]
-  evidences Evidence[]
-  findings  Finding[]
+  artifacts                   Artifact[]
+  evidences                   Evidence[]
+  findings                    Finding[]
+  fiscalDocuments             FiscalDocument[]
+  ownershipTransfers          OwnershipTransfer[]
+  invoiceInvestigatorAnalysis InvoiceInvestigatorAnalysis?
 
   startedAt   DateTime  @default(now())
   completedAt DateTime?
@@ -205,6 +209,111 @@ model Evidence {
 }
 
 /**
+ * Documento fiscal individual dentro de la cadena documental.
+ * En esta primera migración sólo se relaciona con Investigation.
+ */
+model FiscalDocument {
+  id              String @id @default(cuid())
+  investigationId String
+
+  sequence Int
+  type     String
+  status   String  @default("DRAFT")
+  label    String?
+
+  uuid   String?
+  series String?
+  folio  String?
+
+  issuerRfc  String?
+  issuerName String?
+
+  receiverRfc  String?
+  receiverName String?
+
+  issuedAt    DateTime?
+  certifiedAt DateTime?
+  pacRfc      String?
+
+  totalAmount Decimal? @db.Decimal(14, 2)
+  currency    String?
+  cfdiEffect  String?
+
+  satStatus          String?
+  cancellationStatus String?
+  satValidatedAt     DateTime?
+
+  vin                String?
+  engineNumber       String?
+  brand              String?
+  model              String?
+  year               String?
+  version            String?
+  vehicleDescription String?
+
+  documentQuality String?
+  notes           String?
+
+  investigation Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([investigationId, sequence])
+  @@index([investigationId])
+  @@index([type])
+  @@index([uuid])
+  @@index([satStatus])
+}
+
+/**
+ * Análisis humano exclusivo del módulo de factura.
+ * Resume calidad, SAT, cadena de propiedad, endosos y conclusión técnica.
+ */
+model InvoiceInvestigatorAnalysis {
+  id              String @id @default(cuid())
+  investigationId String @unique
+  researcherId    String
+
+  documentQuality     String?
+  documentsLegibility String?
+  hasIncompleteDocs   Boolean?
+
+  allCfdiValidated    String?
+  hasSatInconsistency Boolean?
+  satNotes            String?
+
+  chainStatus            String?
+  chronologyStatus       String?
+  currentOwnerIdentified Boolean?
+
+  hasEndorsements          Boolean?
+  endorsementsLegibility   String?
+  signaturesPresent        String?
+  datesPresent             String?
+  hasCancelledEndorsements Boolean?
+
+  refacturaCount    Int     @default(0)
+  refacturaRelation String?
+
+  technicalObservations String?
+  conclusion            String?
+  researcherConfidence  String?
+
+  reviewedAt DateTime?
+
+  investigation Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  researcher    User          @relation("InvoiceAnalysisResearcher", fields: [researcherId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([researcherId])
+  @@index([chainStatus])
+  @@index([researcherConfidence])
+}
+
+/**
  * Hallazgo producido durante la investigación.
  * status existe porque routes.js lo crea y consulta.
  */
@@ -250,4 +359,37 @@ model Report {
 
   @@index([riskLevel])
   @@index([createdAt])
+}
+
+model OwnershipTransfer {
+  id String @id @default(cuid())
+
+  investigationId String
+
+  sequence Int
+
+  type String
+
+  status String @default("ACTIVE")
+
+  fromName String?
+  fromRfc  String?
+
+  toName String?
+  toRfc  String?
+
+  transferDate DateTime?
+
+  notes String?
+
+  investigation Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([investigationId, sequence])
+  @@index([investigationId])
+  @@index([type])
+  @@index([status])
 }
