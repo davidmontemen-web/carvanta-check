@@ -38,6 +38,8 @@ function TaskWorkspace({
   onReload,
   onArtifactUpload,
   onProcessPipeline,
+  onRunRepuve,
+  processingStage,
   token,
 }) {
   const RegisteredTask = TASK_COMPONENTS[task.key];
@@ -50,6 +52,8 @@ function TaskWorkspace({
     onReload,
     onArtifactUpload,
     onProcess: onProcessPipeline,
+    onRunRepuve,
+    processingStage,
   };
 
   return (

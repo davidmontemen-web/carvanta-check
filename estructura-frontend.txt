@@ -1,0 +1,67 @@
+frontend/src
+├── App.css
+├── App.jsx
+├── assets
+│   ├── hero.png
+│   ├── react.svg
+│   └── vite.svg
+├── components
+│   ├── investigation
+│   │   ├── common
+│   │   │   ├── ArtifactList.jsx
+│   │   │   ├── ComparisonRow.jsx
+│   │   │   ├── DocumentPanel.jsx
+│   │   │   ├── Field.jsx
+│   │   │   ├── Metric.jsx
+│   │   │   ├── SelectField.jsx
+│   │   │   ├── StatusBadge.jsx
+│   │   │   ├── SummaryItem.jsx
+│   │   │   ├── TaskIcon.jsx
+│   │   │   └── VehicleReference.jsx
+│   │   ├── GenericArtifactTask.jsx
+│   │   ├── InvestigationSidebar.jsx
+│   │   ├── InvestigationSummary.jsx
+│   │   ├── invoice
+│   │   │   ├── ClientDocumentsPanel.jsx
+│   │   │   ├── FiscalDocumentForm.jsx
+│   │   │   ├── InvestigatorAnalysisForm.jsx
+│   │   │   ├── InvoicePreview.jsx
+│   │   │   ├── InvoiceTask.jsx
+│   │   │   └── OwnershipTransferForm.jsx
+│   │   ├── report
+│   │   │   └── ReportTask.jsx
+│   │   ├── repuve
+│   │   │   ├── RepuvePreview.jsx
+│   │   │   └── RepuveTask.jsx
+│   │   ├── TaskWorkspace.jsx
+│   │   ├── vehicle-base
+│   │   │   ├── VehicleBasePreview.jsx
+│   │   │   └── VehicleBaseTask.jsx
+│   │   └── WorkspaceHeader.jsx
+│   └── ui
+│       ├── ConfidenceBadge.jsx
+│       ├── ExecutiveAlert.jsx
+│       ├── FieldRow.jsx
+│       ├── index.js
+│       ├── LoadingOverlay.jsx
+│       ├── RiskBadge.jsx
+│       ├── SectionCard.jsx
+│       └── TaskStatusBadge.jsx
+├── index.css
+├── main.jsx
+├── pages
+│   ├── CheckStatusPage.jsx
+│   ├── CreateCheckPage.jsx
+│   ├── ExecutiveDashboardPage.jsx
+│   ├── ExecutiveLoginPage.jsx
+│   ├── InvestigationWorkspacePage.jsx
+│   ├── LandingPage.jsx
+│   ├── PaymentPage.jsx
+│   ├── RegisterPage.jsx
+│   ├── ReportPage.jsx
+│   └── SummaryPage.jsx
+└── services
+    ├── api.js
+    └── investigationApi.js
+
+12 directories, 53 files

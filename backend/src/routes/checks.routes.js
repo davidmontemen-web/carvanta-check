@@ -249,6 +249,97 @@ router.get(
   })
 );
 
+  /* -------------------------------------------------------------------------- */
+  /* Reporte público sanitizado                                                  */
+  /* -------------------------------------------------------------------------- */
+
+  router.get(
+    "/checks/:id/report",
+    asyncHandler(async (req, res) => {
+      const check = await findCheckOrFail(req.params.id, {
+        include: {
+          report: true,
+          investigation: {
+            include: {
+              evidences: {
+                where: {
+                  type: "REPUVE_REPORT",
+                  extractionStatus: "COMPLETED",
+                },
+                orderBy: { updatedAt: "desc" },
+                take: 1,
+              },
+            },
+          },
+        },
+      });
+
+      const reportReady = [
+        "REPORTE_LISTO",
+        "ENTREGADO",
+      ].includes(check.status);
+
+      if (!reportReady || !check.report) {
+        const error = new Error(
+          "El reporte todavía no está disponible"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const repuveEvidence =
+        check.investigation?.evidences?.[0] || null;
+      const repuve = repuveEvidence?.data || null;
+
+      return res.json({
+        id: check.id,
+        folio: check.folio || check.id,
+        status: check.status,
+        createdAt: check.createdAt,
+        vehicle: {
+          brand: check.marca,
+          model: check.modelo,
+          year: check.anio,
+          version: check.version,
+          vin: check.vin,
+          plate: check.placas,
+        },
+        report: {
+          id: check.report.id,
+          quality: check.report.quality,
+          riskLevel: check.report.riskLevel,
+          alerts: check.report.alerts,
+          recommendation: check.report.recommendation,
+          summary: check.report.summary,
+          createdAt: check.report.createdAt,
+        },
+        repuve: repuve
+          ? {
+              verdict: repuve.verdict || null,
+              trustIndex: repuve.trustIndex || null,
+              executiveSummary:
+                repuve.executiveSummary ||
+                repuve.preview?.summary ||
+                check.report.summary,
+              findings: Array.isArray(repuve.findings)
+                ? repuve.findings
+                : [],
+              recommendations: Array.isArray(
+                repuve.recommendations
+              )
+                ? repuve.recommendations
+                : [],
+              nextSteps: Array.isArray(repuve.nextSteps)
+                ? repuve.nextSteps
+                : [],
+              transparency: repuve.transparency || null,
+              disclaimer: repuve.disclaimer || null,
+            }
+          : null,
+      });
+    })
+  );
+
   router.get(
     "/checks/:id",
     asyncHandler(async (req, res) => {

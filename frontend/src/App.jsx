@@ -7,7 +7,6 @@ import RegisterPage from "./pages/RegisterPage";
 import PaymentPage from "./pages/PaymentPage";
 import ReportPage from "./pages/ReportPage";
 import CheckStatusPage from "./pages/CheckStatusPage";
-
 import ExecutiveLoginPage from "./pages/ExecutiveLoginPage";
 import ExecutiveDashboardPage from "./pages/ExecutiveDashboardPage";
 import InvestigationWorkspacePage from "./pages/InvestigationWorkspacePage";
@@ -22,31 +21,13 @@ function App() {
         <Route path="/registro/:id" element={<RegisterPage />} />
         <Route path="/pago/:id" element={<PaymentPage />} />
 
-        <Route
-          path="/check/:id/status"
-          element={<CheckStatusPage />}
-        />
+        <Route path="/check/:id/status" element={<CheckStatusPage />} />
+        <Route path="/check/:id/report" element={<ReportPage />} />
+        <Route path="/reporte/:id" element={<ReportPage />} />
+        <Route path="/check/:id" element={<ReportPage />} />
 
-        <Route
-          path="/reporte/:id"
-          element={<ReportPage />}
-        />
-
-        <Route
-          path="/check/:id"
-          element={<ReportPage />}
-        />
-
-        <Route
-          path="/login"
-          element={<ExecutiveLoginPage />}
-        />
-
-        <Route
-          path="/executive"
-          element={<ExecutiveDashboardPage />}
-        />
-
+        <Route path="/login" element={<ExecutiveLoginPage />} />
+        <Route path="/executive" element={<ExecutiveDashboardPage />} />
         <Route
           path="/executive/investigations/:id"
           element={<InvestigationWorkspacePage />}

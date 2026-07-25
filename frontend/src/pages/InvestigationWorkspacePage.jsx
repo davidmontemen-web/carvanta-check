@@ -8,6 +8,7 @@ import WorkspaceHeader from "../components/investigation/WorkspaceHeader";
 import {
   getInvestigationWorkspace,
   processInvestigation,
+  runRepuvePipeline,
   uploadInvestigationArtifact,
 } from "../services/investigationApi";
 
@@ -24,6 +25,8 @@ function InvestigationWorkspacePage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] =
     useState(false);
+  const [processingStage, setProcessingStage] =
+    useState(null);
 
   useEffect(() => {
     if (!token) {
@@ -107,6 +110,58 @@ function InvestigationWorkspacePage() {
     }
   }
 
+  function inferRepuveStage(data) {
+    const types = new Set(
+      (data?.evidences || []).map((item) => item.type)
+    );
+
+    if (types.has("REPUVE_REPORT")) return "COMPLETED";
+    if (types.has("REPUVE_ANALYSIS")) return "DICTATING";
+    if (types.has("REPUVE_NORMALIZED")) return "INVESTIGATING";
+    if (types.has("REPUVE_RAW")) return "NORMALIZING";
+    return "EXTRACTING";
+  }
+
+  async function handleRunRepuve(artifactId) {
+    let intervalId;
+
+    try {
+      setActionLoading(true);
+      setProcessingStage("STARTING");
+
+      intervalId = window.setInterval(async () => {
+        try {
+          const data = await getInvestigationWorkspace(id, token);
+          setWorkspace(data);
+          setProcessingStage(inferRepuveStage(data));
+        } catch (pollError) {
+          console.error(pollError);
+        }
+      }, 1500);
+
+      await runRepuvePipeline({
+        investigationId: id,
+        token,
+        artifactId,
+      });
+
+      const data = await getInvestigationWorkspace(id, token);
+      setWorkspace(data);
+      setProcessingStage("COMPLETED");
+      alert("REPUVE procesado y reporte del cliente publicado.");
+    } catch (error) {
+      console.error(error);
+      setProcessingStage(null);
+      alert(
+        error.response?.data?.error ||
+          "No se pudo completar el pipeline REPUVE."
+      );
+    } finally {
+      if (intervalId) window.clearInterval(intervalId);
+      setActionLoading(false);
+    }
+  }
+
   async function handleProcessPipeline() {
     try {
       setActionLoading(true);
@@ -174,6 +229,8 @@ function InvestigationWorkspacePage() {
           onReload={loadWorkspace}
           onArtifactUpload={handleArtifactUpload}
           onProcessPipeline={handleProcessPipeline}
+          onRunRepuve={handleRunRepuve}
+          processingStage={processingStage}
           token={token}
         />
 

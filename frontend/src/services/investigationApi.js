@@ -110,3 +110,17 @@ export async function processInvestigation({
 
   return response.data;
 }
+
+export async function runRepuvePipeline({
+  investigationId,
+  token,
+  artifactId,
+}) {
+  const response = await api.post(
+    `/investigations/${investigationId}/repuve-run`,
+    artifactId ? { artifactId } : {},
+    authHeaders(token)
+  );
+
+  return response.data;
+}

@@ -1,8 +1,54 @@
 @import "tailwindcss";
 
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  --carvanta-bg: #f3f4f6;
+  --carvanta-surface: #ffffff;
+  --carvanta-border: #e2e8f0;
+  --carvanta-text: #0f172a;
+  --carvanta-muted: #64748b;
+  --carvanta-primary: #2563eb;
+  --carvanta-primary-strong: #1d4ed8;
+  --carvanta-radius-card: 1rem;
+  --carvanta-shadow-card:
+    0 1px 2px 0 rgb(15 23 42 / 0.04),
+    0 1px 3px 0 rgb(15 23 42 / 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--carvanta-bg);
+}
+
 body {
   margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
   font-family: Inter, system-ui, Arial, sans-serif;
-  background: #f3f4f6;
-  color: #111827;
+  background: var(--carvanta-bg);
+  color: var(--carvanta-text);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+::selection {
+  background: rgb(37 99 235 / 0.18);
 }
