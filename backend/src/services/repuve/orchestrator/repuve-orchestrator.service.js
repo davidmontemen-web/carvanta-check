@@ -21,52 +21,7 @@ function createHttpError(message, statusCode, code) {
   return error;
 }
 
-function normalizeScore(trustIndex) {
-  const candidates = [
-    trustIndex?.score,
-    trustIndex?.value,
-    trustIndex?.total,
-  ];
 
-  const value = candidates
-    .map(Number)
-    .find(Number.isFinite);
-
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-function resolveQuality(score) {
-  if (score >= 80) return "ALTA";
-  if (score >= 60) return "MEDIA";
-  return "BAJA";
-}
-
-function buildLegacyReportData(repuveReport = {}) {
-  const findings = Array.isArray(repuveReport.findings)
-    ? repuveReport.findings
-    : [];
-  const recommendations = Array.isArray(repuveReport.recommendations)
-    ? repuveReport.recommendations
-    : [];
-  const score = normalizeScore(repuveReport.trustIndex);
-
-  return {
-    quality: resolveQuality(score),
-    riskLevel: repuveReport.preview?.risk || repuveReport.risk || "LOW",
-    alerts: findings,
-    recommendation:
-      recommendations
-        .map((item) => item.description || item.title)
-        .filter(Boolean)
-        .join(" ") ||
-      "Conservar la evidencia oficial y continuar con las validaciones documentales del expediente.",
-    summary:
-      repuveReport.executiveSummary ||
-      repuveReport.preview?.summary ||
-      "La investigación REPUVE fue procesada correctamente.",
-  };
-}
 
 async function resolveRepuveArtifact({ investigationId, artifactId }) {
   const artifact = artifactId
@@ -106,34 +61,7 @@ async function resolveRepuveArtifact({ investigationId, artifactId }) {
   return artifact;
 }
 
-async function publishClientReport({ investigation, repuveReport }) {
-  const reportData = buildLegacyReportData(repuveReport);
 
-  const report = await prisma.report.upsert({
-    where: { checkId: investigation.checkId },
-    update: reportData,
-    create: {
-      checkId: investigation.checkId,
-      ...reportData,
-    },
-  });
-
-  await prisma.$transaction([
-    prisma.investigation.update({
-      where: { id: investigation.id },
-      data: {
-        status: "COMPLETED",
-        completedAt: new Date(),
-      },
-    }),
-    prisma.check.update({
-      where: { id: investigation.checkId },
-      data: { status: "REPORTE_LISTO" },
-    }),
-  ]);
-
-  return report;
-}
 
 async function executeRepuvePipeline({ investigation, artifact, userId }) {
   await prisma.check.update({
@@ -168,24 +96,29 @@ async function executeRepuvePipeline({ investigation, artifact, userId }) {
     userId,
   });
 
-  const clientReport = await publishClientReport({
-    investigation,
-    repuveReport: dictation.report,
-  });
-
   return {
     status: "COMPLETED",
     investigationId: investigation.id,
     checkId: investigation.checkId,
     artifactId: artifact.id,
+
+    source: "REPUVE",
+
     stages: {
-      extractionEvidenceId: extraction.evidence.id,
-      normalizedEvidenceId: normalization.evidence.id,
-      analysisEvidenceId: investigationResult.evidence.id,
-      reportEvidenceId: dictation.evidence.id,
+      extractionEvidenceId:
+        extraction.evidence.id,
+      normalizedEvidenceId:
+        normalization.evidence.id,
+      analysisEvidenceId:
+        investigationResult.evidence.id,
+      assessmentEvidenceId:
+        dictation.evidence.id,
     },
-    report: dictation.report,
-    clientReport,
+
+    assessment: dictation.report,
+
+    message:
+      "REPUVE fue procesado correctamente. El resultado parcial está listo para revisión.",
   };
 }
 
@@ -271,5 +204,4 @@ async function runRepuvePipeline({ investigationId, artifactId, userId }) {
 
 module.exports = {
   runRepuvePipeline,
-  buildLegacyReportData,
 };

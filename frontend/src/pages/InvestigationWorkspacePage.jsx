@@ -148,7 +148,9 @@ function InvestigationWorkspacePage() {
       const data = await getInvestigationWorkspace(id, token);
       setWorkspace(data);
       setProcessingStage("COMPLETED");
-      alert("REPUVE procesado y reporte del cliente publicado.");
+            alert(
+        "REPUVE procesado. El resultado parcial está listo para revisión."
+      );
     } catch (error) {
       console.error(error);
       setProcessingStage(null);
