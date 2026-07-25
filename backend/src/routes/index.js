@@ -3,7 +3,6 @@ const express = require("express");
 const authRoutes = require("./auth.routes");
 const reportRoutes = require("./report.routes");
 const executiveRoutes = require("./executive.routes");
-const legacyRoutes = require("./legacy.routes");
 
 const createChecksRouter = require(
   "./checks.routes"
@@ -104,12 +103,6 @@ router.use(
 );
 
 router.use(reportRoutes);
-
-/* -------------------------------------------------------------------------- */
-/* Compatibilidad temporal con flujo anterior                                 */
-/* -------------------------------------------------------------------------- */
-
-router.use(legacyRoutes);
 
 /* -------------------------------------------------------------------------- */
 /* Manejo centralizado de errores                                             */
