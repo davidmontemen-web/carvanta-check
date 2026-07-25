@@ -1,7 +1,6 @@
 const express = require("express");
 
 const authRoutes = require("./auth.routes");
-const reportRoutes = require("./report.routes");
 const executiveRoutes = require("./executive.routes");
 
 const createChecksRouter = require(
@@ -101,8 +100,6 @@ router.use(
     removeFileIfExists,
   })
 );
-
-router.use(reportRoutes);
 
 /* -------------------------------------------------------------------------- */
 /* Manejo centralizado de errores                                             */
