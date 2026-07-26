@@ -45,11 +45,11 @@ function getRiskLevel(score, findings) {
 
 function getQuality({
   vehicleBaseEvidence,
-  repuveEvidence,
+  repuveReport,
 }) {
   if (
     vehicleBaseEvidence &&
-    repuveEvidence
+    repuveReport
   ) {
     return "REPUVE_VALIDADO";
   }
@@ -67,24 +67,48 @@ async function runReportEngine({
     evidences.find(
       (evidence) =>
         evidence.type ===
-        "VEHICLE_BASE_VALIDATED"
+          "VEHICLE_BASE_VALIDATED" &&
+        evidence.extractionStatus ===
+          "COMPLETED"
     ) ||
     (await transaction.evidence.findFirst({
       where: {
-        investigationId: investigation.id,
-        type: "VEHICLE_BASE_VALIDATED",
+        investigationId:
+          investigation.id,
+
+        type:
+          "VEHICLE_BASE_VALIDATED",
+
+        extractionStatus:
+          "COMPLETED",
+      },
+
+      orderBy: {
+        updatedAt: "desc",
       },
     }));
 
-  const repuveEvidence =
+  const repuveReport =
     evidences.find(
       (evidence) =>
-        evidence.type === "REPUVE_RESULT"
+        evidence.type ===
+          "REPUVE_REPORT" &&
+        evidence.extractionStatus ===
+          "COMPLETED"
     ) ||
     (await transaction.evidence.findFirst({
       where: {
-        investigationId: investigation.id,
-        type: "REPUVE_RESULT",
+        investigationId:
+          investigation.id,
+
+        type: "REPUVE_REPORT",
+
+        extractionStatus:
+          "COMPLETED",
+      },
+
+      orderBy: {
+        updatedAt: "desc",
       },
     }));
 
@@ -123,7 +147,7 @@ async function runReportEngine({
         vehicleBaseEvidence
       ),
 
-      repuve: Boolean(repuveEvidence),
+      repuve: Boolean(repuveReport),
     },
 
     positiveFindings:
@@ -163,7 +187,7 @@ async function runReportEngine({
       update: {
         quality: getQuality({
           vehicleBaseEvidence,
-          repuveEvidence,
+          repuveReport,
         }),
 
         riskLevel,
@@ -179,7 +203,7 @@ async function runReportEngine({
 
         quality: getQuality({
           vehicleBaseEvidence,
-          repuveEvidence,
+          repuveReport,
         }),
 
         riskLevel,

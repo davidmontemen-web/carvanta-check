@@ -1,6 +1,126 @@
-const {
-  evaluateRepuve,
-} = require("../rules/repuve/evaluateRepuve");
+function normalizeFindingSeverity(value) {
+  const severity =
+    String(value || "").toUpperCase();
+
+  if (
+    [
+      "INFO",
+      "LOW",
+      "MEDIUM",
+      "HIGH",
+      "CRITICAL",
+      "WARNING",
+    ].includes(severity)
+  ) {
+    return severity;
+  }
+
+  return "INFO";
+}
+
+function buildRepuveFindings(
+  repuveReport
+) {
+  const reportData =
+    repuveReport?.data || {};
+
+  const sourceFindings =
+    Array.isArray(reportData.findings)
+      ? reportData.findings
+      : [];
+
+  if (sourceFindings.length > 0) {
+    return sourceFindings.map(
+      (item, index) => {
+        const rawImpact =
+          item.scoreImpact ??
+          item.data?.scoreImpact ??
+          0;
+
+        const scoreImpact =
+          Number(rawImpact);
+
+        return {
+          type:
+            item.type ||
+            item.code ||
+            `REPUVE_FINDING_${index + 1}`,
+
+          severity:
+            normalizeFindingSeverity(
+              item.severity ||
+                item.priority
+            ),
+
+          status:
+            item.status || "OPEN",
+
+          title:
+            item.title ||
+            "Resultado REPUVE",
+
+          description:
+            item.description ||
+            item.message ||
+            "REPUVE produjo un hallazgo durante el análisis.",
+
+          data: {
+            ...item,
+            scoreImpact:
+              Number.isFinite(scoreImpact)
+                ? scoreImpact
+                : 0,
+
+            sourceEvidenceId:
+              repuveReport.id,
+
+            sourceType:
+              "REPUVE_REPORT",
+          },
+        };
+      }
+    );
+  }
+
+  const approved =
+    reportData.verdict?.code ===
+    "APPROVED";
+
+  return [
+    {
+      type: approved
+        ? "REPUVE_VALIDATED"
+        : "REPUVE_REVIEW_REQUIRED",
+
+      severity: approved
+        ? "INFO"
+        : "WARNING",
+
+      status: "OPEN",
+
+      title: approved
+        ? "Consulta REPUVE procesada"
+        : "REPUVE requiere revisión",
+
+      description:
+        reportData.executiveSummary ||
+        reportData.preview?.summary ||
+        "El dictamen REPUVE fue procesado correctamente.",
+
+      data: {
+        scoreImpact: 0,
+        sourceEvidenceId:
+          repuveReport.id,
+        sourceType:
+          "REPUVE_REPORT",
+        verdict:
+          reportData.verdict || null,
+        trustIndex:
+          reportData.trustIndex || null,
+      },
+    },
+  ];
+}
 
 async function runIntelligenceEngine({
   transaction,
@@ -43,13 +163,20 @@ async function runIntelligenceEngine({
     evidences.find(
       (evidence) =>
         evidence.type ===
-        "VEHICLE_BASE_VALIDATED"
+          "VEHICLE_BASE_VALIDATED" &&
+        evidence.extractionStatus ===
+          "COMPLETED"
     ) ||
     (await transaction.evidence.findFirst({
       where: {
-        investigationId: investigation.id,
-        type: "VEHICLE_BASE_VALIDATED",
-        extractionStatus: "COMPLETED",
+        investigationId:
+          investigation.id,
+
+        type:
+          "VEHICLE_BASE_VALIDATED",
+
+        extractionStatus:
+          "COMPLETED",
       },
 
       orderBy: {
@@ -63,23 +190,36 @@ async function runIntelligenceEngine({
     );
 
     error.statusCode = 409;
+    error.code =
+      "VEHICLE_BASE_REQUIRED";
+
     throw error;
   }
 
   /*
-   * El resultado REPUVE debe haber sido confirmado por el ejecutivo.
-   * No utilizamos fixtures ni una extracción simulada.
+   * El dictamen moderno REPUVE_REPORT
+   * ya contiene los hallazgos de la fuente.
+   *
+   * El motor general los convierte en Finding
+   * para incorporarlos al reporte Carvanta.
    */
-  const repuveEvidence =
+  const repuveReport =
     evidences.find(
       (evidence) =>
-        evidence.type === "REPUVE_RESULT"
+        evidence.type ===
+          "REPUVE_REPORT" &&
+        evidence.extractionStatus ===
+          "COMPLETED"
     ) ||
     (await transaction.evidence.findFirst({
       where: {
-        investigationId: investigation.id,
-        type: "REPUVE_RESULT",
-        extractionStatus: "COMPLETED",
+        investigationId:
+          investigation.id,
+
+        type: "REPUVE_REPORT",
+
+        extractionStatus:
+          "COMPLETED",
       },
 
       orderBy: {
@@ -87,45 +227,27 @@ async function runIntelligenceEngine({
       },
     }));
 
-  if (!repuveEvidence) {
+  if (!repuveReport) {
     const error = new Error(
-      "La investigación no contiene un resultado REPUVE validado"
+      "Debes procesar REPUVE antes de generar el reporte final"
     );
 
     error.statusCode = 409;
+    error.code =
+      "REPUVE_ASSESSMENT_REQUIRED";
+
     throw error;
   }
 
-  /*
-   * El evaluador compara:
-   *
-   * VEHICLE_BASE_VALIDATED
-   * contra
-   * REPUVE_RESULT
-   *
-   * y devuelve hallazgos reales basados en reglas.
-   */
-  const evaluatedFindings = evaluateRepuve({
-    vehicleBase: vehicleBaseEvidence.data,
-    repuve: repuveEvidence.data,
-  });
-
-  if (
-    !Array.isArray(evaluatedFindings) ||
-    evaluatedFindings.length === 0
-  ) {
-    const error = new Error(
-      "El evaluador REPUVE no produjo hallazgos"
+  const evaluatedFindings =
+    buildRepuveFindings(
+      repuveReport
     );
-
-    error.statusCode = 500;
-    throw error;
-  }
 
   const findings = [];
 
   /*
-   * Persistimos cada resultado producido por el evaluador.
+   * Persistimos cada resultado producido por el dictamen REPUVE.
    */
   for (const findingData of evaluatedFindings) {
     const finding =

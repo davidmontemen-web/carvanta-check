@@ -64,7 +64,7 @@ async function runExtractionEngine({
 
               artifactId: artifact.id,
 
-              type: "REPUVE_RESULT",
+              type: "REPUVE_REPORT",
 
               extractionStatus:
                 "COMPLETED",
@@ -77,10 +77,13 @@ async function runExtractionEngine({
 
         if (!existingRepuveEvidence) {
           const error = new Error(
-            `El artifact REPUVE ${artifact.id} aún no tiene un resultado estructurado confirmado por el ejecutivo`
+            `El artifact REPUVE ${artifact.id} aún no ha sido procesado`
           );
 
           error.statusCode = 409;
+          error.code =
+            "REPUVE_ASSESSMENT_REQUIRED";
+
           throw error;
         }
 
