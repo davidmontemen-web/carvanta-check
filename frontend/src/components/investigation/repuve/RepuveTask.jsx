@@ -110,12 +110,9 @@ function RepuveTask({
           <p className="mt-2 text-sm text-emerald-900">
             {workspace.repuve.executiveSummary || workspace.repuve.preview?.summary}
           </p>
-          <a
-            href={`/check/${workspace.check.id}/report`}
-            className="mt-4 inline-flex text-sm font-bold text-emerald-900 underline"
-          >
-            Abrir reporte del cliente
-          </a>
+          <p className="mt-4 text-sm font-medium text-emerald-900">
+  Continúa al paso “Generar reporte” para crear el reporte final del cliente.
+</p>
         </section>
       )}
 

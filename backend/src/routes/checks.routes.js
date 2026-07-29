@@ -203,9 +203,10 @@ router.get(
       };
 
     const reportReady = [
-      "REPORTE_LISTO",
-      "ENTREGADO",
-    ].includes(check.status);
+  "reporte_generado",
+  "REPORTE_LISTO",
+  "ENTREGADO",
+].includes(check.status);
 
     return res.json({
       id: check.id,
@@ -275,9 +276,10 @@ router.get(
       });
 
       const reportReady = [
-        "REPORTE_LISTO",
-        "ENTREGADO",
-      ].includes(check.status);
+  "reporte_generado",
+  "REPORTE_LISTO",
+  "ENTREGADO",
+].includes(check.status);
 
       if (!reportReady || !check.report) {
         const error = new Error(

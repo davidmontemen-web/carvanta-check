@@ -53,12 +53,9 @@ function ReportTask({
             {workspace.report.summary}
           </p>
 
-          <a
-            href={`/check/${workspace.check.id}/report`}
-            className="mt-4 inline-block text-sm font-bold text-emerald-900 underline"
-          >
-            Abrir reporte
-          </a>
+          <p className="mt-4 text-sm font-medium text-emerald-900">
+  Continúa al paso “Generar reporte” para crear el reporte final del cliente.
+</p>
         </div>
       )}
     </div>

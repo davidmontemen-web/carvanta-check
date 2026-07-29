@@ -68,7 +68,7 @@ function getRepuveTaskStatus({
   return getTaskStatus({
     artifacts,
     evidences: [],
-    evidenceType: "REPUVE_RESULT",
+    evidenceType: "REPUVE_REPORT",
   });
 }
 
@@ -84,11 +84,22 @@ function buildTasks({
         evidence.type === "VEHICLE_BASE_VALIDATED"
     ) || null;
 
-  const repuveEvidence =
+    const repuveEvidence =
     safeEvidences.find(
       (evidence) =>
-        evidence.type === "REPUVE_RESULT"
-    ) || null;
+        evidence.type ===
+          "REPUVE_REPORT" &&
+        evidence.extractionStatus ===
+          "COMPLETED"
+    ) ||
+    safeEvidences.find(
+      (evidence) =>
+        evidence.type ===
+          "REPUVE_ANALYSIS" &&
+        evidence.extractionStatus ===
+          "COMPLETED"
+    ) ||
+    null;
 
   const vehiclePreview =
     vehicleBaseEvidence?.data?.preview || null;
