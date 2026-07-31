@@ -31,13 +31,12 @@ function SummaryPage() {
     return <main className="p-8">Expediente no encontrado.</main>;
   }
 
-  const requiredDocs = ["tarjetaCirculacion"];
-  const uploadedTypes = check.documents.map((doc) => doc.type);
-  const hasRequiredDocs = requiredDocs.every((type) =>
-    uploadedTypes.includes(type)
-  );
+  const documentCount = check.documents?.length || 0;
 
-  const expedienteStatus = hasRequiredDocs ? "Listo para revisión" : "Incompleto";
+const expedienteStatus =
+  documentCount > 0
+    ? "Investigación enriquecida"
+    : "Investigación iniciada con VIN";
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8">
@@ -83,7 +82,7 @@ function SummaryPage() {
             <div className="mt-4 rounded-lg border border-slate-200 p-4">
               <p className="text-sm text-slate-500">Documentos cargados</p>
               <p className="mt-1 font-semibold text-slate-900">
-                {check.documents.length}
+                {documentCount}
               </p>
             </div>
 
@@ -106,8 +105,11 @@ function SummaryPage() {
             Documentos cargados
           </h2>
 
-          {check.documents.length === 0 ? (
-            <p className="text-slate-600">No hay documentos cargados.</p>
+         {documentCount === 0 ? (
+            <p className="text-slate-600">
+  La investigación inició únicamente con el VIN. Podrás agregar documentos
+  posteriormente para aumentar el nivel de certeza.
+</p>
           ) : (
             <div className="grid gap-4 md:grid-cols-4">
               {check.documents.map((doc) => (

@@ -15,7 +15,46 @@ const {
 const router = express.Router();
 
 
+function normalizeVin(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
 
+  const normalized = value
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
+
+  return normalized || null;
+}
+
+function validateVin(value) {
+  const vin = normalizeVin(value);
+
+  if (!vin) {
+    const error = new Error("El VIN / NIV es obligatorio");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (vin.length !== 17) {
+    const error = new Error(
+      "El VIN / NIV debe contener exactamente 17 caracteres"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
+    const error = new Error(
+      "El VIN / NIV contiene caracteres inválidos"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return vin;
+}
 
 
 function createChecksRouter({
@@ -24,109 +63,99 @@ function createChecksRouter({
   checkDetailInclude,
 }) {
   router.post(
-    "/checks",
-    documentUpload.fields([
-      {
-        name: "tarjetaCirculacion",
-        maxCount: 1,
-      },
-      {
-        name: "facturaFrente",
-        maxCount: 1,
-      },
-      {
-        name: "facturaReverso",
-        maxCount: 1,
-      },
-      {
-        name: "documentoAdicional",
-        maxCount: 1,
-      },
-    ]),
-    asyncHandler(async (req, res) => {
-      const files = req.files || {};
+  "/checks",
+  documentUpload.fields([
+    {
+      name: "tarjetaCirculacion",
+      maxCount: 1,
+    },
+    {
+      name: "facturaFrente",
+      maxCount: 1,
+    },
+    {
+      name: "facturaReverso",
+      maxCount: 1,
+    },
+    {
+      name: "documentoAdicional",
+      maxCount: 1,
+    },
+  ]),
+  asyncHandler(async (req, res) => {
+    const files = req.files || {};
 
-      try {
-        requireFields(req.body, ["marca", "modelo", "anio"]);
+    try {
+      const vin = validateVin(req.body.vin);
 
-        if (!files.tarjetaCirculacion?.[0]) {
-          const error = new Error(
-            "La tarjeta de circulación es obligatoria"
-          );
+      const checkData = {
+        vin,
+        marca: normalizeString(req.body.marca),
+        modelo: normalizeString(req.body.modelo),
+        anio: normalizeString(req.body.anio),
+        version: normalizeString(req.body.version),
+        placas: normalizeString(req.body.placas),
+        vendedor: normalizeString(req.body.vendedor),
+        precio: normalizeString(req.body.precio),
+      };
 
-          error.statusCode = 400;
-          throw error;
+      const documents = [];
+
+      Object.entries(files).forEach(([type, fileArray]) => {
+        const file = fileArray?.[0];
+
+        if (!file) {
+          return;
         }
 
-        const checkData = {
-          marca: normalizeString(req.body.marca),
-          modelo: normalizeString(req.body.modelo),
-          anio: normalizeString(req.body.anio),
-          version: normalizeString(req.body.version),
-          placas: normalizeString(req.body.placas),
-          vin: normalizeString(req.body.vin),
-          vendedor: normalizeString(req.body.vendedor),
-          precio: normalizeString(req.body.precio),
-        };
-
-        const documents = [];
-
-        Object.entries(files).forEach(([type, fileArray]) => {
-          const file = fileArray?.[0];
-
-          if (!file) {
-            return;
-          }
-
-          documents.push({
-            type,
-            fileName: file.originalname,
-            filePath: `/uploads/${file.filename}`,
-          });
+        documents.push({
+          type,
+          fileName: file.originalname,
+          filePath: `/uploads/${file.filename}`,
         });
+      });
 
-        const createdCheck = await prisma.$transaction(
-          async (transaction) => {
-            const check = await transaction.check.create({
-              data: checkData,
-            });
+      const createdCheck = await prisma.$transaction(
+        async (transaction) => {
+          const check = await transaction.check.create({
+            data: checkData,
+          });
 
-            if (documents.length > 0) {
-              await transaction.document.createMany({
-                data: documents.map((document) => ({
-                  ...document,
-                  checkId: check.id,
-                })),
-              });
-            }
-
-            return transaction.check.findUnique({
-              where: {
-                id: check.id,
-              },
-
-              include: {
-                documents: {
-                  orderBy: {
-                    createdAt: "asc",
-                  },
-                },
-
-                review: true,
-                report: true,
-              },
+          if (documents.length > 0) {
+            await transaction.document.createMany({
+              data: documents.map((document) => ({
+                ...document,
+                checkId: check.id,
+              })),
             });
           }
-        );
 
-        return res.status(201).json(createdCheck);
-      } catch (error) {
-        removeUploadedFiles(files);
-        throw error;
-      }
-    })
-  );
+          return transaction.check.findUnique({
+            where: {
+              id: check.id,
+            },
 
+            include: {
+              documents: {
+                orderBy: {
+                  createdAt: "asc",
+                },
+              },
+
+              review: true,
+              report: true,
+            },
+          });
+        }
+      );
+
+      return res.status(201).json(createdCheck);
+    } catch (error) {
+      removeUploadedFiles(files);
+      throw error;
+    }
+  })
+);
   /* -------------------------------------------------------------------------- */
 /* Seguimiento público del expediente                                         */
 /* -------------------------------------------------------------------------- */

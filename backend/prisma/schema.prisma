@@ -14,9 +14,9 @@ model Check {
   id    String  @id @default(cuid())
   folio String? @unique
 
-  marca    String
-  modelo   String
-  anio     String
+  marca    String?
+  modelo   String?
+  anio     String?
   version  String?
   placas   String?
   vin      String?
