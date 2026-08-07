@@ -6,7 +6,11 @@ import InvestigationSummary from "../components/investigation/InvestigationSumma
 import TaskWorkspace from "../components/investigation/TaskWorkspace";
 import WorkspaceHeader from "../components/investigation/WorkspaceHeader";
 import {
+  dictateRapi,
+  extractRapiArtifact,
   getInvestigationWorkspace,
+  investigateRapi,
+  normalizeRapi,
   processInvestigation,
   runRepuvePipeline,
   uploadInvestigationArtifact,
@@ -164,6 +168,102 @@ function InvestigationWorkspacePage() {
     }
   }
 
+  async function handleRunRapi() {
+  try {
+    setActionLoading(true);
+    setProcessingStage("RAPI_EXTRACTING");
+
+    const latestWorkspace =
+      await getInvestigationWorkspace(id, token);
+
+    const rapiArtifacts =
+      latestWorkspace.rapi?.artifacts?.all || [];
+
+    if (rapiArtifacts.length === 0) {
+      alert(
+        "Carga al menos una consulta RAPI antes de iniciar el análisis."
+      );
+      return;
+    }
+
+    const extractedArtifactIds = new Set(
+      (latestWorkspace.evidences || [])
+        .filter(
+          (evidence) =>
+            evidence.type === "RAPI_RAW" &&
+            evidence.artifactId
+        )
+        .map((evidence) => evidence.artifactId)
+    );
+
+    const pendingArtifacts =
+      rapiArtifacts.filter(
+        (artifact) =>
+          !extractedArtifactIds.has(artifact.id)
+      );
+
+    for (const artifact of pendingArtifacts) {
+      await extractRapiArtifact({
+        investigationId: id,
+        token,
+        artifactId: artifact.id,
+      });
+    }
+
+    setProcessingStage("RAPI_NORMALIZING");
+
+    const normalizedResult =
+      await normalizeRapi({
+        investigationId: id,
+        token,
+      });
+
+    const normalizedEvidenceId =
+      normalizedResult.evidence?.id || null;
+
+    setProcessingStage("RAPI_INVESTIGATING");
+
+    const investigationResult =
+      await investigateRapi({
+        investigationId: id,
+        token,
+        normalizedEvidenceId,
+      });
+
+    const analysisEvidenceId =
+      investigationResult.evidence?.id || null;
+
+    setProcessingStage("RAPI_DICTATING");
+
+    await dictateRapi({
+      investigationId: id,
+      token,
+      analysisEvidenceId,
+    });
+
+    const updatedWorkspace =
+      await getInvestigationWorkspace(id, token);
+
+    setWorkspace(updatedWorkspace);
+    setProcessingStage("RAPI_COMPLETED");
+
+    alert(
+      "RAPI procesado. El dictamen está listo para revisión."
+    );
+  } catch (error) {
+    console.error(error);
+    setProcessingStage(null);
+
+    alert(
+      error.response?.data?.error ||
+        error.response?.data?.message ||
+        "No se pudo completar el análisis RAPI."
+    );
+  } finally {
+    setActionLoading(false);
+  }
+}
+
   async function handleProcessPipeline() {
     try {
       setActionLoading(true);
@@ -232,6 +332,7 @@ function InvestigationWorkspacePage() {
           onArtifactUpload={handleArtifactUpload}
           onProcessPipeline={handleProcessPipeline}
           onRunRepuve={handleRunRepuve}
+          onRunRapi={handleRunRapi}
           processingStage={processingStage}
           token={token}
         />

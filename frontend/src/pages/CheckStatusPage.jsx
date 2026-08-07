@@ -98,6 +98,20 @@ function CheckStatusPage() {
     (stage) => stage.key === data.stage
   );
 
+  const vehicleDescription = [
+  data.vehicle?.brand,
+  data.vehicle?.model,
+  data.vehicle?.year,
+]
+  .filter(Boolean)
+  .join(" ");
+
+const vehicleReference =
+  vehicleDescription ||
+  (data.vehicle?.vin
+    ? `VIN ${data.vehicle.vin}`
+    : "Vehículo pendiente de identificar");
+
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10">
       <section className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -124,15 +138,9 @@ function CheckStatusPage() {
             {data.folio || data.id}
           </p>
 
-          <p className="mt-3 text-sm text-slate-600">
-            {[
-              data.vehicle?.brand,
-              data.vehicle?.model,
-              data.vehicle?.year,
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          </p>
+          <p className="mt-3 text-sm font-medium text-slate-700">
+  {vehicleReference}
+</p>
         </div>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-4">

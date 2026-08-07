@@ -124,3 +124,68 @@ export async function runRepuvePipeline({
 
   return response.data;
 }
+
+export async function extractRapiArtifact({
+  investigationId,
+  token,
+  artifactId,
+}) {
+  const response = await api.post(
+    `/investigations/${investigationId}/rapi-extract`,
+    {
+      artifactId,
+    },
+    authHeaders(token)
+  );
+
+  return response.data;
+}
+
+export async function normalizeRapi({
+  investigationId,
+  token,
+}) {
+  const response = await api.post(
+    `/investigations/${investigationId}/rapi-normalize`,
+    {},
+    authHeaders(token)
+  );
+
+  return response.data;
+}
+
+export async function investigateRapi({
+  investigationId,
+  token,
+  normalizedEvidenceId,
+}) {
+  const response = await api.post(
+    `/investigations/${investigationId}/rapi-investigate`,
+    normalizedEvidenceId
+      ? {
+          normalizedEvidenceId,
+        }
+      : {},
+    authHeaders(token)
+  );
+
+  return response.data;
+}
+
+export async function dictateRapi({
+  investigationId,
+  token,
+  analysisEvidenceId,
+}) {
+  const response = await api.post(
+    `/investigations/${investigationId}/rapi-dictate`,
+    analysisEvidenceId
+      ? {
+          analysisEvidenceId,
+        }
+      : {},
+    authHeaders(token)
+  );
+
+  return response.data;
+}

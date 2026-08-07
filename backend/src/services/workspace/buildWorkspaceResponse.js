@@ -122,6 +122,110 @@ function buildRepuveWorkspaceBlock({
   };
 }
 
+function buildRapiWorkspaceBlock({
+  rapiEvidence,
+  rapiArtifacts,
+  rapiTask,
+}) {
+  const evidenceData =
+    getEvidenceData(rapiEvidence);
+
+  const preview =
+    evidenceData?.preview || null;
+
+  const vinArtifacts =
+    rapiArtifacts.filter(
+      (artifact) =>
+        artifact.type === "RAPI_VIN"
+    );
+
+  const plateArtifacts =
+    rapiArtifacts.filter(
+      (artifact) =>
+        artifact.type === "RAPI_PLACA"
+    );
+
+  return {
+    status:
+      preview?.status ||
+      rapiTask?.status ||
+      "PENDING",
+
+    evidence:
+      rapiEvidence,
+
+    preview,
+
+    risk:
+      preview?.risk ||
+      evidenceData?.risk ||
+      null,
+
+    confidence:
+      preview?.confidence ??
+      evidenceData?.confidence ??
+      null,
+
+    coverage:
+      preview?.coverage ??
+      evidenceData?.coverage ??
+      0,
+
+    findings:
+      Array.isArray(
+        preview?.findings
+      )
+        ? preview.findings
+        : [],
+
+    recommendations:
+      Array.isArray(
+        preview?.recommendations
+      )
+        ? preview.recommendations
+        : [],
+
+    nextSteps:
+      Array.isArray(
+        preview?.nextSteps ||
+        evidenceData?.nextSteps
+      )
+        ? preview?.nextSteps ||
+          evidenceData?.nextSteps
+        : [],
+
+    verdict:
+      preview?.verdict ||
+      evidenceData?.verdict ||
+      null,
+
+    executiveSummary:
+      preview?.summary ||
+      evidenceData?.executiveSummary ||
+      null,
+
+    identifiersChecked:
+      Array.isArray(
+        preview?.identifiersChecked ||
+        evidenceData?.identifiersChecked
+      )
+        ? preview?.identifiersChecked ||
+          evidenceData?.identifiersChecked
+        : [],
+
+    report:
+      evidenceData?.stage === "REPORT"
+        ? evidenceData
+        : null,
+
+    artifacts: {
+      vin: vinArtifacts,
+      plates: plateArtifacts,
+      all: rapiArtifacts,
+    },
+  };
+}
+
 function buildWorkspaceResponse(investigation) {
   const safeArtifacts = Array.isArray(
     investigation.artifacts
@@ -218,6 +322,13 @@ function buildWorkspaceResponse(investigation) {
    * Prioridad del Workspace:
    * Cerebro 4 > Cerebro 3 > evidencia legacy.
    */
+
+  const rapiTask =
+  tasks.find(
+    (task) => task.key === "RAPI"
+  ) || null;
+
+
   const repuveReportEvidence =
     safeEvidences.find(
       (evidence) =>
@@ -246,6 +357,54 @@ function buildWorkspaceResponse(investigation) {
       repuveTask,
     });
 
+  /*
+ * Prioridad RAPI:
+ * Cerebro 4 > Cerebro 3 > Cerebro 2.
+ */
+const rapiReportEvidence =
+  safeEvidences.find(
+    (evidence) =>
+      evidence.type === "RAPI_REPORT" &&
+      evidence.extractionStatus ===
+        "COMPLETED"
+  ) || null;
+
+const rapiAnalysisEvidence =
+  safeEvidences.find(
+    (evidence) =>
+      evidence.type === "RAPI_ANALYSIS" &&
+      evidence.extractionStatus ===
+        "COMPLETED"
+  ) || null;
+
+const rapiNormalizedEvidence =
+  safeEvidences.find(
+    (evidence) =>
+      evidence.type ===
+        "RAPI_NORMALIZED" &&
+      evidence.extractionStatus ===
+        "COMPLETED"
+  ) || null;
+
+const workspaceRapiEvidence =
+  rapiReportEvidence ||
+  rapiAnalysisEvidence ||
+  rapiNormalizedEvidence;
+
+const rapiArtifacts = [
+  ...(artifactsByType.RAPI_VIN || []),
+  ...(artifactsByType.RAPI_PLACA || []),
+];
+
+const rapi =
+  buildRapiWorkspaceBlock({
+    rapiEvidence:
+      workspaceRapiEvidence,
+
+    rapiArtifacts,
+    rapiTask,
+  });  
+
   const completedTasks = tasks.filter(
     (task) => task.status === "COMPLETED"
   ).length;
@@ -266,6 +425,7 @@ function buildWorkspaceResponse(investigation) {
     vehicleBase: validatedData,
     vehicleIdentityPreview,
     repuve,
+    rapi,
     tasks,
     progress,
     summary: {
@@ -292,4 +452,5 @@ function buildWorkspaceResponse(investigation) {
 module.exports = {
   buildWorkspaceResponse,
   buildRepuveWorkspaceBlock,
+  buildRapiWorkspaceBlock,
 };

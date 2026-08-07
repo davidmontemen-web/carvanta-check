@@ -304,12 +304,21 @@ function CreateCheckPage() {
   );
 }
 
-function Input({ label, name, value, onChange }) {
+function Input({
+  label,
+  name,
+  value,
+  onChange,
+  type = "text",
+  inputMode,
+}) {
   return (
     <label className="block">
       <span className="text-sm font-medium text-slate-700">{label}</span>
 
       <input
+      type={type}
+inputMode={inputMode}
         name={name}
         value={value}
         onChange={onChange}

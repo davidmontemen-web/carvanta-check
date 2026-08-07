@@ -3,7 +3,9 @@ import StatusBadge from "./common/StatusBadge";
 import InvoiceTask from "./invoice/InvoiceTask";
 import ReportTask from "./report/ReportTask";
 import RepuveTask from "./repuve/RepuveTask";
+import RapiTask from "./rapi/RapiTask";
 import VehicleBaseTask from "./vehicle-base/VehicleBaseTask";
+
 
 const TASK_DESCRIPTIONS = {
   VEHICLE_VALIDATION:
@@ -27,6 +29,7 @@ const TASK_DESCRIPTIONS = {
 const TASK_COMPONENTS = {
   VEHICLE_VALIDATION: VehicleBaseTask,
   REPUVE: RepuveTask,
+  RAPI: RapiTask,
   SAT_FACTURA: InvoiceTask,
   REPORT: ReportTask,
 };
@@ -39,6 +42,7 @@ function TaskWorkspace({
   onArtifactUpload,
   onProcessPipeline,
   onRunRepuve,
+  onRunRapi,
   processingStage,
   token,
 }) {
@@ -53,6 +57,7 @@ function TaskWorkspace({
     onArtifactUpload,
     onProcess: onProcessPipeline,
     onRunRepuve,
+    onRunRapi,
     processingStage,
   };
 

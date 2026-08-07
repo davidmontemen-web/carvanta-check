@@ -31,3 +31,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Local backups and migration artifacts
+backups/
+*_respaldo_usb/
+*.respaldo
+*.zip

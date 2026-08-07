@@ -2,6 +2,26 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
+function getVehicleTitle(check) {
+  const knownVehicle = [
+    check.marca,
+    check.modelo,
+    check.anio,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  if (knownVehicle) {
+    return knownVehicle;
+  }
+
+  if (check.vin) {
+    return `VIN ${check.vin}`;
+  }
+
+  return "Vehículo pendiente de identificar";
+}
+
 function ExecutiveDashboardPage() {
   const navigate = useNavigate();
 
@@ -170,13 +190,18 @@ function ExecutiveDashboardPage() {
                     </p>
 
                     <h3 className="mt-1 text-lg font-semibold text-slate-900">
-                      {check.marca} {check.modelo} {check.anio}
-                    </h3>
+  {getVehicleTitle(check)}
+</h3>
 
                     <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-600">
                       <span>
                         Cliente: {check.nombreCliente || "Sin registro"}
                       </span>
+                      {check.vin && (
+  <span>
+    VIN: <strong>{check.vin}</strong>
+  </span>
+)}
 
                       <span>Estado: {check.status}</span>
 
@@ -192,41 +217,49 @@ function ExecutiveDashboardPage() {
                   </div>
 
                   <div className="flex items-center">
-                    {check.status === "EN_INVESTIGACION" ? (
-                      <button
-                        onClick={() => {
-  if (check.investigation?.id) {
-    navigate(
-      `/executive/investigations/${check.investigation.id}`
-    );
-  } else {
-    handleAssign(check.id);
-  }
-}}                       className="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white"
-                      >
-                        Continuar
-                      </button>
-                    ) : activeFilter === "PENDIENTES" ? (
-                      <button
-                        onClick={() => handleAssign(check.id)}
-                        className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white"
-                      >
-                        Tomar expediente
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() =>
-                          navigate(
-  `/executive/investigations/${check.investigation.id}`
-)
-                        }
-                        className="rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700"
-                      >
-                        Ver expediente
-                      </button>
-                    )}
-                  </div>
-                </article>
+  {check.status === "EN_INVESTIGACION" ? (
+    <button
+      type="button"
+      onClick={() => {
+        if (check.investigation?.id) {
+          navigate(
+            `/executive/investigations/${check.investigation.id}`
+          );
+          return;
+        }
+
+        handleAssign(check.id);
+      }}
+      className="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white"
+    >
+      Continuar
+    </button>
+  ) : activeFilter === "PENDIENTES" ? (
+    <button
+      type="button"
+      onClick={() => handleAssign(check.id)}
+      className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white"
+    >
+      Tomar expediente
+    </button>
+  ) : check.investigation?.id ? (
+    <button
+      type="button"
+      onClick={() =>
+        navigate(
+          `/executive/investigations/${check.investigation.id}`
+        )
+      }
+      className="rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700"
+    >
+      Ver expediente
+    </button>
+  ) : (
+    <span className="text-sm text-slate-500">
+      Investigación no disponible
+    </span>
+  )}
+</div>                </article>
               ))}
             </div>
           )}

@@ -1,6 +1,10 @@
 const express = require("express");
 
+
 const { prisma } = require("../lib/prisma");
+const {
+  decodeVin,
+} = require("../services/vinDecoder.service");
 
 const {
   asyncHandler,
@@ -88,16 +92,33 @@ function createChecksRouter({
     try {
       const vin = validateVin(req.body.vin);
 
-      const checkData = {
-        vin,
-        marca: normalizeString(req.body.marca),
-        modelo: normalizeString(req.body.modelo),
-        anio: normalizeString(req.body.anio),
-        version: normalizeString(req.body.version),
-        placas: normalizeString(req.body.placas),
-        vendedor: normalizeString(req.body.vendedor),
-        precio: normalizeString(req.body.precio),
-      };
+      const vinInfo = await decodeVin(vin);
+
+
+
+      const decodedVehicle = vinInfo.vehicle || {};
+
+const checkData = {
+  vin,
+  marca:
+    normalizeString(req.body.marca) ||
+    normalizeString(decodedVehicle.marca),
+
+  modelo:
+    normalizeString(req.body.modelo) ||
+    normalizeString(decodedVehicle.modelo),
+
+  anio:
+  normalizeString(req.body.anio) ||
+  (decodedVehicle.anio
+    ? String(decodedVehicle.anio)
+    : null),
+
+  version: normalizeString(req.body.version),
+  placas: normalizeString(req.body.placas),
+  vendedor: normalizeString(req.body.vendedor),
+  precio: normalizeString(req.body.precio),
+};
 
       const documents = [];
 
@@ -244,6 +265,7 @@ router.get(
         brand: check.marca,
         model: check.modelo,
         year: check.anio,
+        vin: check.vin,
       },
 
       status: check.status,

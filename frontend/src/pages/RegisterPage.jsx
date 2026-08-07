@@ -20,14 +20,22 @@ function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.nombreCliente || !form.whatsapp || !form.email) {
+    const nombreCliente = form.nombreCliente.trim();
+const whatsapp = form.whatsapp.trim();
+const email = form.email.trim();
+
+    if (!nombreCliente || !whatsapp || !email) {
       alert("Nombre, WhatsApp y email son obligatorios.");
       return;
     }
 
     try {
       setLoading(true);
-      await api.patch(`/checks/${id}/customer`, form);
+      await api.patch(`/checks/${id}/customer`, {
+  nombreCliente,
+  whatsapp,
+  email,
+});
       navigate(`/pago/${id}`);
     } catch (error) {
       console.error(error);
@@ -59,18 +67,19 @@ function RegisterPage() {
           />
 
           <Input
-            label="WhatsApp *"
-            name="whatsapp"
-            value={form.whatsapp}
-            onChange={handleChange}
-          />
+  label="WhatsApp *"
+  name="whatsapp"
+  value={form.whatsapp}
+  onChange={handleChange}
+  inputMode="tel"
+/>
 
           <Input
-            label="Email *"
-            name="email"
-            value={form.email}
-            onChange={handleChange}
-          />
+  label="Email *"
+  name="email"
+  value={form.email}
+  onChange={handleChange}
+/>
 
           <button
             disabled={loading}

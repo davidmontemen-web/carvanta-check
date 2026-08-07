@@ -33,6 +33,27 @@ function SummaryPage() {
 
   const documentCount = check.documents?.length || 0;
 
+const vehicleIdentified = Boolean(
+  check.marca ||
+  check.modelo ||
+  check.anio
+);
+
+const vehicleTitle = [
+  check.marca,
+  check.modelo,
+  check.anio,
+]
+  .filter(Boolean)
+  .join(" ");
+
+  const hasAdditionalVehicleData = Boolean(
+  check.version ||
+  check.placas ||
+  check.vendedor ||
+  check.precio
+);
+
 const expedienteStatus =
   documentCount > 0
     ? "Investigación enriquecida"
@@ -49,56 +70,98 @@ const expedienteStatus =
           Revisa la información capturada antes de continuar.
         </p>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          <section className="rounded-xl bg-white p-6 shadow-sm lg:col-span-2">
-            <h2 className="mb-4 font-semibold text-slate-900">
-              Datos del vehículo
-            </h2>
+        <section className="mt-6 overflow-hidden rounded-2xl bg-white shadow-sm">
+  <div className="bg-gradient-to-r from-blue-700 to-blue-600 px-6 py-8 text-white md:px-8">
+    <p className="text-sm font-semibold uppercase tracking-wider text-blue-100">
+      Vehículo identificado
+    </p>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <Item label="Marca" value={check.marca} />
-              <Item label="Modelo" value={check.modelo} />
-              <Item label="Año" value={check.anio} />
-              <Item label="Versión" value={check.version} />
-              <Item label="Placas" value={check.placas} />
-              <Item label="VIN / NIV" value={check.vin} />
-              <Item label="Vendedor" value={check.vendedor} />
-              <Item label="Precio anunciado" value={check.precio} />
-            </div>
-          </section>
+    <div className="mt-3 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+      <div>
+        <h2 className="text-3xl font-bold">
+          {vehicleIdentified
+            ? vehicleTitle
+            : "Vehículo pendiente de identificar"}
+        </h2>
 
-          <section className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="mb-4 font-semibold text-slate-900">
-              Estado del expediente
-            </h2>
+        <p className="mt-2 max-w-2xl text-sm text-blue-100">
+          {vehicleIdentified
+            ? "Información obtenida automáticamente mediante la decodificación del VIN."
+            : "La investigación continuará utilizando el VIN proporcionado."}
+        </p>
+      </div>
 
-            <div className="rounded-lg border border-slate-200 p-4">
-              <p className="text-sm text-slate-500">Estado documental</p>
-              <p className="mt-1 font-semibold text-slate-900">
-                {expedienteStatus}
-              </p>
-            </div>
+      <div className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
+        <p className="text-xs font-medium uppercase tracking-wide text-blue-100">
+          VIN / NIV
+        </p>
 
-            <div className="mt-4 rounded-lg border border-slate-200 p-4">
-              <p className="text-sm text-slate-500">Documentos cargados</p>
-              <p className="mt-1 font-semibold text-slate-900">
-                {documentCount}
-              </p>
-            </div>
+        <p className="mt-1 font-mono text-base font-semibold tracking-wider">
+          {check.vin}
+        </p>
+      </div>
+    </div>
+  </div>
 
-            <div className="mt-4 rounded-lg border border-slate-200 p-4">
-              <p className="text-sm text-slate-500">Precio del servicio</p>
-              <p className="mt-1 font-semibold text-slate-900">$199 MXN</p>
-            </div>
+  <div className="grid gap-4 p-6 md:grid-cols-3 md:p-8">
+    <StatusCard
+      label="Estado del expediente"
+      value={expedienteStatus}
+      description="Tu investigación fue creada correctamente."
+    />
 
-            <Link
-              to={`/registro/${check.id}`}
-              className="mt-6 block rounded-lg bg-blue-600 px-4 py-3 text-center font-semibold text-white hover:bg-blue-700"
-            >
-              Continuar al registro
-            </Link>
-          </section>
-        </div>
+    <StatusCard
+      label="Documentos cargados"
+      value={documentCount}
+      description={
+        documentCount > 0
+          ? "Estos documentos enriquecerán la investigación."
+          : "Podrás agregar evidencias posteriormente."
+      }
+    />
+
+    <StatusCard
+      label="Precio del servicio"
+      value="$199 MXN"
+      description="Pago único por la investigación."
+    />
+  </div>
+
+  {hasAdditionalVehicleData && (
+    <div className="border-t border-slate-200 px-6 py-6 md:px-8">
+      <h3 className="font-semibold text-slate-900">
+        Información adicional proporcionada
+      </h3>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {check.version && (
+          <Item label="Versión" value={check.version} />
+        )}
+
+        {check.placas && (
+          <Item label="Placas" value={check.placas} />
+        )}
+
+        {check.vendedor && (
+          <Item label="Vendedor" value={check.vendedor} />
+        )}
+
+        {check.precio && (
+          <Item label="Precio anunciado" value={check.precio} />
+        )}
+      </div>
+    </div>
+  )}
+
+  <div className="border-t border-slate-200 bg-slate-50 px-6 py-5 md:px-8">
+    <Link
+      to={`/registro/${check.id}`}
+      className="block w-full rounded-lg bg-blue-600 px-4 py-3 text-center font-semibold text-white transition hover:bg-blue-700 md:ml-auto md:w-auto md:min-w-64"
+    >
+      Continuar al registro
+    </Link>
+  </div>
+</section>
 
         <section className="mt-6 rounded-xl bg-white p-6 shadow-sm">
           <h2 className="mb-4 font-semibold text-slate-900">
@@ -147,6 +210,28 @@ function Item({ label, value }) {
     <div className="rounded-lg border border-slate-200 p-3">
       <p className="text-xs text-slate-500">{label}</p>
       <p className="mt-1 font-medium text-slate-900">{value || "No capturado"}</p>
+    </div>
+  );
+}
+
+function StatusCard({
+  label,
+  value,
+  description,
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm font-medium text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-2 text-lg font-bold text-slate-900">
+        {value}
+      </p>
+
+      <p className="mt-1 text-sm leading-5 text-slate-600">
+        {description}
+      </p>
     </div>
   );
 }

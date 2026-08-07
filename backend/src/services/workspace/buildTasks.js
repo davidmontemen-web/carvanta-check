@@ -72,6 +72,53 @@ function getRepuveTaskStatus({
   });
 }
 
+function getRapiTaskStatus({
+  artifacts = [],
+  evidence = null,
+}) {
+  const safeArtifacts = Array.isArray(artifacts)
+    ? artifacts
+    : [];
+
+  if (
+    safeArtifacts.some(
+      (artifact) =>
+        artifact.processingStatus === "FAILED"
+    )
+  ) {
+    return "NEEDS_REVIEW";
+  }
+
+  if (
+    safeArtifacts.some((artifact) =>
+      ["PENDING", "PROCESSING"].includes(
+        artifact.processingStatus
+      )
+    )
+  ) {
+    return "IN_PROGRESS";
+  }
+
+  const preview =
+    evidence?.data?.preview || null;
+
+  if (
+    preview?.status &&
+    [
+      "PENDING",
+      "IN_PROGRESS",
+      "NEEDS_REVIEW",
+      "COMPLETED",
+    ].includes(preview.status)
+  ) {
+    return preview.status;
+  }
+
+  return evidence
+    ? "COMPLETED"
+    : "PENDING";
+}
+
 function buildTasks({
   investigation,
   safeArtifacts,
@@ -101,6 +148,23 @@ function buildTasks({
     ) ||
     null;
 
+    const rapiEvidence =
+  safeEvidences.find(
+    (evidence) =>
+      evidence.type ===
+        "RAPI_REPORT" &&
+      evidence.extractionStatus ===
+        "COMPLETED"
+  ) ||
+  safeEvidences.find(
+    (evidence) =>
+      evidence.type ===
+        "RAPI_ANALYSIS" &&
+      evidence.extractionStatus ===
+        "COMPLETED"
+  ) ||
+  null;
+
   const vehiclePreview =
     vehicleBaseEvidence?.data?.preview || null;
 
@@ -118,6 +182,17 @@ function buildTasks({
 
   const repuveArtifacts =
     artifactsByType.REPUVE || [];
+
+    const rapiVinArtifacts =
+  artifactsByType.RAPI_VIN || [];
+
+const rapiPlateArtifacts =
+  artifactsByType.RAPI_PLACA || [];
+
+const rapiArtifacts = [
+  ...rapiVinArtifacts,
+  ...rapiPlateArtifacts,
+];
 
   const tasks = [
     {
@@ -167,14 +242,21 @@ function buildTasks({
       }),
     },
     {
-      key: "RAPI",
-      label: "Consultar RAPI",
-      status: getTaskStatus({
-        artifacts: artifactsByType.RAPI || [],
-        evidences: safeEvidences,
-        evidenceType: "RAPI_RESULT",
-      }),
-    },
+  key: "RAPI",
+  label: "Consultar RAPI",
+  status: getRapiTaskStatus({
+  artifacts: rapiArtifacts,
+  evidence: rapiEvidence,
+}),
+  artifactTypes: {
+    vin: "RAPI_VIN",
+    plate: "RAPI_PLACA",
+  },
+  artifactCounts: {
+    vin: rapiVinArtifacts.length,
+    plate: rapiPlateArtifacts.length,
+  },
+},
     {
       key: "TRANSUNION",
       label: "Consultar TransUnion",
@@ -206,4 +288,5 @@ module.exports = {
   buildTasks,
   getTaskStatus,
   getRepuveTaskStatus,
+  getRapiTaskStatus,
 };
